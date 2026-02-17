@@ -48,8 +48,8 @@ namespace RaytolfasLauncher
         private LauncherSettings settings = new LauncherSettings();
         private readonly DiscordRpcClient discordClientID = new DiscordRpcClient("1472589510742118400");
         private readonly string currentVersion = "0.0.1";
-        private readonly string updateUrl = "https://github.com/Raytolfas/RaytolfasLauncherAssets/raw/refs/heads/main/Updates/update_0_0_1.json";
-        private readonly string serversUrl = "https://github.com/Raytolfas/RaytolfasLauncherAssets/raw/refs/heads/main/Servers/servers_0_0_1.json";
+        private readonly string updateUrl = "https://github.com/Raytolfas/RaytolfasLauncherAssets/raw/refs/heads/main/Updates/latest.json";
+        private readonly string serversUrl = "https://github.com/Raytolfas/RaytolfasLauncherAssets/raw/refs/heads/main/Servers/servers.json";
         private string settingsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "RaytolfasLauncher");
         private string settingsPath;
         private DiscordRpcClient? discordClient;
