@@ -1,0 +1,32 @@
+<Window x:Class="RaytolfasLauncher.LogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Консоль Raytolfas Launcher" Height="400" Width="600"
+        Background="#1E1E1E" WindowStyle="None" AllowsTransparency="True"
+        MouseDown="Window_MouseDown">
+    <Border BorderBrush="#BB86FC" BorderThickness="1" CornerRadius="10">
+        <Grid Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Text="LOG CONSOLE" Foreground="#BB86FC" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+            
+            <RichTextBox x:Name="LogBox" Grid.Row="1" Background="#121212" Foreground="#00FF00" 
+                         FontFamily="Consolas" IsReadOnly="True" VerticalScrollBarVisibility="Auto" BorderThickness="0">
+                <FlowDocument>
+                    <Paragraph x:Name="LogParagraph"/>
+                </FlowDocument>
+            </RichTextBox>
+
+            <Button Grid.Row="2" Content="ЗАКРЫТЬ" Click="Close_Click" Width="100" Height="30" Margin="0,10,0,0"
+                    Background="#2D2D2D" Foreground="White" BorderThickness="0">
+                <Button.Resources>
+                    <Style TargetType="Border"><Setter Property="CornerRadius" Value="5"/></Style>
+                </Button.Resources>
+            </Button>
+        </Grid>
+    </Border>
+</Window>
