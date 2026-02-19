@@ -14,13 +14,38 @@
 // You should have received a copy of the GNU General Public License
 // along with Raytolfas Launcher. If not, see <https://www.gnu.org/licenses/>.
 
-using System.Configuration;
-using System.Data;
+using System;
+using System.IO;
 using System.Windows;
 
 namespace RaytolfasLauncher;
 
 public partial class App : System.Windows.Application
 {
-}
+    public App()
+    {
+        AppDomain.CurrentDomain.UnhandledException += (s, e) => 
+            ReportError((Exception)e.ExceptionObject);
+        
+        this.DispatcherUnhandledException += (s, e) => 
+        {
+            ReportError(e.Exception);
+            e.Handled = true;
+        };
+    }
 
+    private void ReportError(Exception ex)
+    {
+        string errorText = $"Тип ошибки: {ex.GetType().Name}\n" +
+                           $"Сообщение: {ex.Message}\n\n" +
+                           $"Стек вызовов:\n{ex.StackTrace}";
+
+        System.Windows.MessageBox.Show(errorText, "Критическая ошибка запуска", MessageBoxButton.OK, MessageBoxImage.Error);
+        
+        try {
+            File.WriteAllText("crash_report.txt", errorText);
+        } catch { }
+
+        System.Environment.Exit(1);
+    }
+}

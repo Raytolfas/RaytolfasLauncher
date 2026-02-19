@@ -53,28 +53,39 @@ namespace RaytolfasLauncher
         private string settingsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "RaytolfasLauncher");
         private string settingsPath;
         private DiscordRpcClient? discordClient;
-        private Forms.NotifyIcon? trayIcon;
 
         public MainWindow()
         {
-            InitializeComponent();
-            settingsPath = Path.Combine(settingsFolder, "settings.json");
-            VersionText.Text = $"v{currentVersion}";
-            
-            LoadSettingsFromFile();
-            
-            AccountSelector.IsEditable = true; 
+            try 
+                {
+                    InitializeComponent();
+                    
+                    settingsPath = Path.Combine(settingsFolder, "settings.json");
+                    VersionText.Text = $"v{currentVersion}";
+                    
+                    LoadSettingsFromFile(); 
+                    
+                    AccountSelector.IsEditable = true; 
 
-            UpdateAccountList();
+                    string mcPath = string.IsNullOrWhiteSpace(settings?.MinecraftPath) 
+                        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft")
+                        : settings.MinecraftPath;
 
-            launcher = new MinecraftLauncher(new MinecraftPath(settings.MinecraftPath));
-            LoadVersions();
-            this.Loaded += async (s, e) => {
-                await CheckForUpdates();
-            };
-            InitDiscordRPC();
-            InitTrayIcon();
-            LoadAvatar();
+                    launcher = new MinecraftLauncher(new MinecraftPath(mcPath));
+
+                    UpdateAccountList();
+                    LoadVersions();
+                    LoadAvatar();
+
+                    InitDiscordRPC();
+                    this.Loaded += async (s, e) => {
+                        await CheckForUpdates();
+                    };
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show($"Критическая ошибка при запуске:\n\n{ex.Message}\n\nСтек: {ex.StackTrace}");
+                }
         }
 
         private async void CheckUpdateBtn_Click(object sender, RoutedEventArgs e)
@@ -327,33 +338,66 @@ namespace RaytolfasLauncher
         {
             try
             {
-                if (!Directory.Exists(settingsFolder)) Directory.CreateDirectory(settingsFolder);
+                if (!Directory.Exists(settingsFolder)) 
+                    Directory.CreateDirectory(settingsFolder);
+
                 string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(settingsPath, json);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Не удалось сохранить файл настроек: {ex.Message}");
+            }
         }
 
         private void SaveSettings_Click(object sender, RoutedEventArgs e)
         {
-            settings.SelectedRam = (int)RamSlider.Value;
-            settings.MinecraftPath = PathBox.Text;
-            settings.ShowReleases = CbReleases.IsChecked ?? true;
-            settings.ShowSnapshots = CbSnapshots.IsChecked ?? false;
-            settings.ShowModded = CbModded.IsChecked ?? true;
-            
-            settings.ShowDiscordStatus = CbDiscordRPC.IsChecked ?? true;
-            settings.HideLauncherOnPlay = CbHideLauncher.IsChecked ?? true; 
-            settings.CustomBackgroundPath = BgPathBox.Text;
-
-            SaveSettings();
-            launcher = new MinecraftLauncher(new MinecraftPath(settings.MinecraftPath));
-            LoadVersions();
-            SettingsModal.Visibility = Visibility.Collapsed;
-            
-            if (string.IsNullOrEmpty(settings.CustomBackgroundPath))
+            try 
             {
-                MainBgImage.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/background.png"));
+                if (string.IsNullOrWhiteSpace(PathBox.Text))
+                {
+                    PathBox.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+                }
+
+                settings.SelectedRam = (int)RamSlider.Value;
+                settings.MinecraftPath = PathBox.Text;
+                settings.ShowReleases = CbReleases.IsChecked ?? true;
+                settings.ShowSnapshots = CbSnapshots.IsChecked ?? false;
+                settings.ShowModded = CbModded.IsChecked ?? true;
+                settings.ShowDiscordStatus = CbDiscordRPC.IsChecked ?? true;
+                settings.HideLauncherOnPlay = CbHideLauncher.IsChecked ?? true; 
+                settings.CustomBackgroundPath = BgPathBox.Text;
+
+                SaveSettings();
+
+                var mcPath = new MinecraftPath(settings.MinecraftPath);
+                launcher = new MinecraftLauncher(mcPath);
+
+                long totalMemory = (long)(new Microsoft.VisualBasic.Devices.ComputerInfo().TotalPhysicalMemory / 1024 / 1024);
+                
+                if ((long)RamSlider.Value > totalMemory) {
+                    System.Windows.MessageBox.Show("Внимание: вы выбрали больше памяти, чем доступно на вашем ПК!");
+                }
+                
+                LoadVersions();
+                SettingsModal.Visibility = Visibility.Collapsed;
+                
+                if (string.IsNullOrEmpty(settings.CustomBackgroundPath))
+                {
+                    MainBgImage.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/background.png"));
+                }
+                else 
+                {
+                    try {
+                        MainBgImage.Source = new BitmapImage(new Uri(settings.CustomBackgroundPath));
+                    } catch {}
+                }
+
+                System.Windows.MessageBox.Show("Настройки успешно применены!", "Готово", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Ошибка при применении настроек: {ex.Message}");
             }
         }
 
@@ -419,48 +463,34 @@ namespace RaytolfasLauncher
         #endregion
 
         #region System Tray
-        private void InitTrayIcon()
-        {
-            trayIcon = new Forms.NotifyIcon();
-            try 
-            {
-                var stream = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Assets/logo.ico")).Stream;
-                trayIcon.Icon = new System.Drawing.Icon(stream); 
-            } 
-            catch 
-            {
-                trayIcon.Icon = System.Drawing.SystemIcons.Application; 
-            }
-            
-            trayIcon.Visible = true;
-            trayIcon.Text = "Raytolfas Launcher";
-
-            var contextMenu = new Forms.ContextMenuStrip();
-            contextMenu.Items.Add("Открыть/Скрыть", null, (s, e) => ToggleWindow());
-            contextMenu.Items.Add("Выйти", null, (s, e) => ShutdownApp());
-
-            trayIcon.ContextMenuStrip = contextMenu;
-            trayIcon.DoubleClick += (s, e) => ToggleWindow();
-        }
-
         private void ToggleWindow()
         {
-            if (this.IsVisible) this.Hide();
-            else { this.Show(); this.WindowState = WindowState.Normal; this.Activate(); }
+            if (this.IsVisible && this.WindowState != WindowState.Minimized)
+            {
+                this.Hide();
+            }
+            else
+            {
+                this.Show();
+                this.WindowState = WindowState.Normal;
+                this.Activate();
+            }
         }
 
         private void ShutdownApp()
         {
-            if (trayIcon != null) trayIcon.Visible = false; 
-            discordClient?.Dispose(); 
-            WpfApplication.Current.Shutdown(); 
+            discordClient?.Dispose();
+            System.Windows.Application.Current.Shutdown();
         }
 
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        private void ToggleWindow_Click(object sender, RoutedEventArgs e)
         {
-            e.Cancel = true;
-            this.Hide();
-            base.OnClosing(e);
+            ToggleWindow();
+        }
+
+        private void ShutdownApp_Click(object sender, RoutedEventArgs e)
+        {
+            ShutdownApp();
         }
         #endregion
 
@@ -517,12 +547,23 @@ namespace RaytolfasLauncher
             }
         }
 
-        private void OpenGameFolder_Click(object sender, RoutedEventArgs e)
+        private void OpenFolderMenu_Click(object sender, RoutedEventArgs e)
         {
-            if (Directory.Exists(settings.MinecraftPath))
-                System.Diagnostics.Process.Start("explorer.exe", settings.MinecraftPath);
+            (sender as System.Windows.Controls.Button).ContextMenu.IsOpen = true;
+        }
+
+        private void OpenRootFolder_Click(object sender, RoutedEventArgs e) => OpenDir("");
+        private void OpenModsFolder_Click(object sender, RoutedEventArgs e) => OpenDir("mods");
+        private void OpenSavesFolder_Click(object sender, RoutedEventArgs e) => OpenDir("saves");
+        private void OpenScreenshotsFolder_Click(object sender, RoutedEventArgs e) => OpenDir("screenshots");
+
+        private void OpenDir(string subDir)
+        {
+            string fullPath = Path.Combine(settings.MinecraftPath, subDir);
+            if (Directory.Exists(fullPath))
+                System.Diagnostics.Process.Start("explorer.exe", fullPath);
             else
-                WpfMessageBox.Show("Путь к Minecraft не найден!");
+                System.Windows.MessageBox.Show($"Папка {subDir} еще не создана!");
         }
 
         private void Window_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) { if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed) DragMove(); }
