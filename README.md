@@ -8,9 +8,9 @@
 
 ---
 
-### 🖼️ Скриншот интерфейса из 0.0.1 версии
+### 🖼️ Скриншот интерфейса из 0.0.2 версии
 <p align="left">
-  <img src="https://i.ibb.co/Y48dqGCb/image-removebg-preview.png" width="800" alt="Raytolfas Launcher скрин работы v0.0.1">
+  <img src="https://github.com/Raytolfas/RaytolfasLauncherAssets/blob/main/screenshot.png" width="800" alt="Raytolfas Launcher скрин работы v0.0.1">
 </p>
 
 ---
