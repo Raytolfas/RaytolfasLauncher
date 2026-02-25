@@ -29,7 +29,7 @@
 
 ### ℹ️ Ссылки
 * **ТГК**: [t.me/raytolfas_launcher](https://t.me/raytolfas_launcher)
-* **Сайт**: *скоро . . .*
+* **Сайт**: [launcher.raytolfas.com](https://launcher.raytolfas.com/)
 
 ---
 
