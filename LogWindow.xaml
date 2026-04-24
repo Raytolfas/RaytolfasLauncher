@@ -1,0 +1,77 @@
+<Window x:Class="RaytolfasLauncher.LogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Логи запуска"
+        Height="480"
+        Width="760"
+        Background="Transparent"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        MouseDown="Window_MouseDown"
+        ResizeMode="CanResizeWithGrip">
+
+    <Border BorderBrush="#1A1A1A" BorderThickness="1" CornerRadius="14" Background="#161616">
+        <Grid Margin="14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="LogTitleText" Text="ЛОГИ ЗАПУСКА" Foreground="White" FontSize="18" FontWeight="Bold"/>
+                <Border Grid.Column="1"
+                        x:Name="BetaBadgeBorder"
+                        Background="#CF8B1D"
+                        CornerRadius="8"
+                        Margin="10,2,0,0"
+                        Padding="8,3">
+                    <TextBlock x:Name="BetaBadgeText" Text="BETA" Foreground="Black" FontWeight="Bold" FontSize="10"/>
+                </Border>
+                <Button Grid.Column="3" Content="✕" Click="Close_Click" Background="Transparent" Foreground="Gray" BorderThickness="0" Width="28" Height="28"/>
+            </Grid>
+
+            <TextBlock x:Name="LogDescriptionText"
+                       Grid.Row="1"
+                       Text="Отображение логов Minecraft (бета-функция)"
+                       Foreground="Gray"
+                       Margin="0,8,0,12"
+                       TextWrapping="Wrap"/>
+
+            <RichTextBox x:Name="LogBox"
+                         Grid.Row="2"
+                         Background="#0E0E0E"
+                         Foreground="WhiteSmoke"
+                         FontFamily="Consolas"
+                         FontSize="13"
+                         IsReadOnly="True"
+                         VerticalScrollBarVisibility="Auto"
+                         BorderThickness="0"
+                         Padding="10">
+                <FlowDocument PagePadding="0">
+                    <Paragraph x:Name="LogParagraph"/>
+                </FlowDocument>
+            </RichTextBox>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                <Button x:Name="ClearButton" Content="ОЧИСТИТЬ" Click="Clear_Click" Width="110" Height="34" Margin="0,0,10,0" Background="#2D2D2D" Foreground="White" BorderThickness="0">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                </Button>
+                <Button x:Name="CopyButton" Content="СКОПИРОВАТЬ" Click="Copy_Click" Width="130" Height="34" Margin="0,0,10,0" Background="#2D2D2D" Foreground="White" BorderThickness="0">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                </Button>
+                <Button x:Name="HideButton" Content="СКРЫТЬ" Click="Close_Click" Width="110" Height="34" Background="#BB86FC" Foreground="Black" BorderThickness="0" FontWeight="Bold">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style></Button.Resources>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

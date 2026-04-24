@@ -1,0 +1,78 @@
+<Window x:Class="RaytolfasLauncher.AccountWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Управление аккаунтами"
+        Height="380"
+        Width="520"
+        Background="Transparent"
+        WindowStartupLocation="CenterOwner"
+        AllowsTransparency="True"
+        WindowStyle="None"
+        ResizeMode="NoResize">
+
+    <Border BorderBrush="#1A1A1A" BorderThickness="1" CornerRadius="20" Background="#121212">
+        <Grid Margin="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock x:Name="AccountsTitleText" Text="ВАШИ АККАУНТЫ" Foreground="#BB86FC" FontSize="14" FontWeight="Bold" Margin="5,0,0,10"/>
+                <ListBox x:Name="AccountsListBox" Height="240" Background="#1E1E1E" BorderThickness="0" Margin="0,0,0,10">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="30"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock x:Name="TypeIcon" Text="👤" Foreground="#BB86FC" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="14"/>
+                                <Image Grid.Column="1" Source="{Binding Username, StringFormat='https://minotar.net/avatar/\{0\}/24'}" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <TextBlock Grid.Column="2" Text="{Binding Username}" Foreground="White" VerticalAlignment="Center" Margin="10,0,0,0" FontSize="14"/>
+                            </Grid>
+
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Type}" Value="Microsoft">
+                                    <Setter TargetName="TypeIcon" Property="Text" Value="🔑"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Type}" Value="ElyBy">
+                                    <Setter TargetName="TypeIcon" Property="Text" Value="🦋"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Button x:Name="DeleteAccountButton" Content="УДАЛИТЬ" Click="DeleteAccount_Click" Background="#CF6679" Foreground="White" Height="30" FontWeight="Bold">
+                    <Button.Resources>
+                        <Style TargetType="Border"><Setter Property="CornerRadius" Value="8"/></Style>
+                    </Button.Resources>
+                </Button>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Margin="20,40,0,0">
+                <Button x:Name="AddOfflineButton" Content="+ ДОБАВИТЬ ОФФЛАЙН" Click="AddOffline_Click" Height="45" Margin="0,0,0,12" Background="#2D2D2D" Foreground="White" BorderThickness="0">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
+                </Button>
+
+                <Button x:Name="AddMicrosoftButton" Content="+ MICROSOFT (ЛИЦЕНЗИЯ)" Click="AddMicrosoft_Click" Height="45" Background="#0078D4" Foreground="White" BorderThickness="0">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
+                </Button>
+
+                <Button x:Name="AddElyByButton" Content="+ ELY.BY" Click="AddElyBy_Click" Height="45" Margin="0,12,0,0" Background="#2D2D2D" Foreground="White" BorderThickness="0">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="10"/></Style></Button.Resources>
+                </Button>
+
+                <Separator Margin="0,20" Background="#333333"/>
+
+                <Button x:Name="UseAccountButton" Content="ИСПОЛЬЗОВАТЬ" Click="SelectAndClose_Click" Height="55" Background="#BB86FC" Foreground="Black" FontWeight="Bold" FontSize="14">
+                    <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="12"/></Style></Button.Resources>
+                </Button>
+
+                <Button x:Name="CancelButton" Content="ОТМЕНА" Click="Close_Click" Margin="0,10,0,0" Background="Transparent" Foreground="Gray" BorderThickness="0"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
