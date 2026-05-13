@@ -36,7 +36,7 @@ namespace RaytolfasLauncher
     {
         public List<AccountData> Accounts { get; set; } = new List<AccountData>();
         public int SelectedAccountIndex { get; set; } = 0;
-        public int SelectedRam { get; set; } = 4096;
+        public int SelectedRam { get; set; } = 2048;
         public string? JavaPath { get; set; }
         public string? SelectedJavaProfileId { get; set; } = "auto";
         public int WindowWidth { get; set; } = 854;

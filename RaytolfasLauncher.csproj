@@ -4,6 +4,9 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <AssemblyName>RaytolfasLauncher</AssemblyName>
+    <Version>0.0.3.1</Version>
+    <AssemblyVersion>0.0.3.1</AssemblyVersion>
+    <FileVersion>0.0.3.1</FileVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 

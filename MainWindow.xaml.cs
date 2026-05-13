@@ -55,7 +55,7 @@ namespace RaytolfasLauncher
         private MinecraftLauncher? launcher;
         private LauncherSettings settings = new LauncherSettings();
         private readonly DiscordRpcClient discordClientID = new DiscordRpcClient("1472589510742118400");
-        private readonly string currentVersion = "0.0.3";
+        private readonly string currentVersion = "0.0.3.1";
         private readonly string updateUrl = "https://github.com/Raytolfas/RaytolfasLauncherAssets/raw/refs/heads/main/Updates/latest.json";
         private const string ElyByProfileApiBaseUrl = "https://authserver.ely.by";
         private const string AuthlibInjectorLatestReleaseApiUrl = "https://api.github.com/repos/yushijinhun/authlib-injector/releases/latest";
@@ -514,16 +514,19 @@ namespace RaytolfasLauncher
                     }
                 }
 
+                string? resolvedJavaPath = await GetResolvedJavaPathForLaunchAsync(versionId);
+                int launchRamMb = GetEffectiveLaunchRamMb(resolvedJavaPath, (int)RamSlider.Value);
+
                 var launchOption = new MLaunchOption
                 {
                     Session = session,
-                    MaximumRamMb = (int)RamSlider.Value,
+                    MaximumRamMb = launchRamMb,
 
                     FullScreen = CbFullScreen.IsChecked ?? false,
                     ScreenWidth = int.TryParse(WinWidthBox.Text, out int w) ? w : 854,
                     ScreenHeight = int.TryParse(WinHeightBox.Text, out int h) ? h : 480,
                     
-                    JavaPath = GetResolvedJavaPathForLaunch(),
+                    JavaPath = resolvedJavaPath,
                 };
 
                 if (!string.IsNullOrWhiteSpace(JavaArgsBox.Text))
@@ -674,6 +677,7 @@ namespace RaytolfasLauncher
             CbOpenLogWindow.IsChecked = settings.OpenLogWindowOnLaunch;
             CbElyBySkins.IsChecked = settings.EnableElyBySkins;
             
+            settings.SelectedRam = NormalizeConfiguredRamMb(settings.SelectedRam);
             RamSlider.Value = settings.SelectedRam;
             PathBox.Text = settings.MinecraftPath;
             JavaArgsBox.Text = settings.JvmArgs;
@@ -824,14 +828,39 @@ namespace RaytolfasLauncher
             return paths;
         }
 
-        private string? GetResolvedJavaPathForLaunch()
+        private async Task<string?> GetResolvedJavaPathForLaunchAsync(string versionId)
         {
             string explicitPath = (JavaPathBox.Text ?? "").Trim();
             if (!string.IsNullOrWhiteSpace(explicitPath))
                 return explicitPath;
 
+            if (launcher != null)
+            {
+                try
+                {
+                    var version = await launcher.GetVersionAsync(versionId);
+                    string? launcherJavaPath = launcher.GetJavaPath(version);
+                    if (!string.IsNullOrWhiteSpace(launcherJavaPath) && File.Exists(launcherJavaPath))
+                        return launcherJavaPath;
+                }
+                catch
+                {
+                }
+
+                try
+                {
+                    string? defaultJavaPath = launcher.GetDefaultJavaPath();
+                    if (!string.IsNullOrWhiteSpace(defaultJavaPath) && File.Exists(defaultJavaPath))
+                        return defaultJavaPath;
+                }
+                catch
+                {
+                }
+            }
+
             var discovered = DiscoverJavaPaths()
                 .OrderBy(path => IsLikely32BitJava(path))
+                .ThenByDescending(path => TryReadJavaMajorVersion(path) ?? 0)
                 .ThenByDescending(path => string.Equals(path, settings.JavaPath, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
@@ -842,6 +871,20 @@ namespace RaytolfasLauncher
         {
             if (string.IsNullOrWhiteSpace(javawPath))
                 return false;
+
+            string? osArch = TryReadJavaReleaseValue(javawPath, "OS_ARCH");
+            if (!string.IsNullOrWhiteSpace(osArch))
+            {
+                string normalizedArch = osArch.Trim();
+                if (normalizedArch.Contains("64", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (normalizedArch.Contains("86", StringComparison.OrdinalIgnoreCase) ||
+                    normalizedArch.Contains("32", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
 
             return javawPath.IndexOf("(x86)", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    javawPath.IndexOf("\\x86\\", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -878,23 +921,80 @@ namespace RaytolfasLauncher
 
         private string? TryReadJavaVersion(string javawPath)
         {
+            return TryReadJavaReleaseValue(javawPath, "JAVA_VERSION");
+        }
+
+        private static string? TryReadJavaReleaseValue(string javawPath, string key)
+        {
             var rootDir = Directory.GetParent(javawPath)?.Parent?.FullName;
-            if (string.IsNullOrWhiteSpace(rootDir)) return null;
+            if (string.IsNullOrWhiteSpace(rootDir))
+                return null;
 
             string releasePath = Path.Combine(rootDir, "release");
-            if (!File.Exists(releasePath)) return null;
+            if (!File.Exists(releasePath))
+                return null;
 
+            string prefix = key + "=";
             foreach (var line in File.ReadLines(releasePath))
             {
-                if (line.StartsWith("JAVA_VERSION=", StringComparison.OrdinalIgnoreCase))
-                {
-                    var parts = line.Split('=', 2);
-                    if (parts.Length < 2) return null;
-                    return parts[1].Trim().Trim('"');
-                }
+                if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var parts = line.Split('=', 2);
+                if (parts.Length < 2)
+                    return null;
+
+                return parts[1].Trim().Trim('"');
             }
 
             return null;
+        }
+
+        private static int? TryReadJavaMajorVersion(string javawPath)
+        {
+            string? version = TryReadJavaReleaseValue(javawPath, "JAVA_VERSION");
+            if (string.IsNullOrWhiteSpace(version))
+                return null;
+
+            string normalizedVersion = version.Trim().Trim('"');
+            string[] parts = normalizedVersion.Split(new[] { '.', '_', '-', '+' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0)
+                return null;
+
+            if (parts[0] == "1" && parts.Length > 1 && int.TryParse(parts[1], out int legacyMajor))
+                return legacyMajor;
+
+            return int.TryParse(parts[0], out int major) ? major : null;
+        }
+
+        private long GetTotalPhysicalMemoryMb()
+        {
+            return (long)(new Microsoft.VisualBasic.Devices.ComputerInfo().TotalPhysicalMemory / 1024 / 1024);
+        }
+
+        private int NormalizeConfiguredRamMb(int requestedRamMb)
+        {
+            int minimumRamMb = (int)Math.Round(RamSlider.Minimum > 0 ? RamSlider.Minimum : 1024);
+            int maximumRamMb = (int)Math.Round(RamSlider.Maximum > 0 ? RamSlider.Maximum : 16384);
+            int normalizedRamMb = requestedRamMb <= 0 ? Math.Min(2048, maximumRamMb) : requestedRamMb;
+            normalizedRamMb = Math.Clamp(normalizedRamMb, minimumRamMb, maximumRamMb);
+
+            long totalMemoryMb = GetTotalPhysicalMemoryMb();
+            if (totalMemoryMb <= 0)
+                return normalizedRamMb;
+
+            long reservedForSystemMb = totalMemoryMb <= 4096 ? 1024 : Math.Max(1024, totalMemoryMb / 4);
+            long safeCapMb = Math.Max(minimumRamMb, totalMemoryMb - reservedForSystemMb);
+            return Math.Min(normalizedRamMb, (int)Math.Min(safeCapMb, maximumRamMb));
+        }
+
+        private int GetEffectiveLaunchRamMb(string? javaPath, int requestedRamMb)
+        {
+            int normalizedRamMb = NormalizeConfiguredRamMb(requestedRamMb);
+            if (IsLikely32BitJava(javaPath))
+                normalizedRamMb = Math.Min(normalizedRamMb, 1024);
+
+            return normalizedRamMb;
         }
 
         private void ApplyJavaProfileSelection(JavaProfile profile)
@@ -978,7 +1078,7 @@ namespace RaytolfasLauncher
                 settings.WindowHeight = int.Parse(WinHeightBox.Text);
                 settings.IsFullScreen = CbFullScreen.IsChecked ?? false;
                 settings.JvmArgs = JavaArgsBox.Text;
-                settings.SelectedRam = (int)RamSlider.Value;
+                settings.SelectedRam = NormalizeConfiguredRamMb((int)RamSlider.Value);
                 settings.MinecraftPath = PathBox.Text;
                 settings.ShowReleases = CbReleases.IsChecked ?? true;
                 settings.ShowSnapshots = CbSnapshots.IsChecked ?? false;
@@ -997,7 +1097,8 @@ namespace RaytolfasLauncher
                 var mcPath = new MinecraftPath(settings.MinecraftPath);
                 launcher = new MinecraftLauncher(mcPath);
 
-                long totalMemory = (long)(new Microsoft.VisualBasic.Devices.ComputerInfo().TotalPhysicalMemory / 1024 / 1024);
+                RamSlider.Value = settings.SelectedRam;
+                long totalMemory = GetTotalPhysicalMemoryMb();
                 
                 if ((long)RamSlider.Value > totalMemory) {
                     System.Windows.MessageBox.Show(T("settings.ram_warning"));
@@ -1055,6 +1156,42 @@ namespace RaytolfasLauncher
             };
         }
 
+        private static MSession CreateMicrosoftSession(string username, string accessToken, string uuid)
+        {
+            var session = new MSession(username, accessToken, uuid)
+            {
+                UserType = "msa"
+            };
+
+            return session;
+        }
+
+        private static MSession CreateElyBySession(string username, string accessToken, string uuid, string? clientToken = null)
+        {
+            var session = new MSession(username, accessToken, uuid)
+            {
+                UserType = "Mojang"
+            };
+
+            if (!string.IsNullOrWhiteSpace(clientToken))
+                session.ClientToken = clientToken;
+
+            return session;
+        }
+
+        private static MSession CreateOfflineSession(string username, string? preferredUuid = null)
+        {
+            var session = MSession.CreateOfflineSession(username);
+            session.UserType = "legacy";
+            session.AccessToken = "0";
+            session.ClientToken = "0";
+
+            if (!string.IsNullOrWhiteSpace(preferredUuid))
+                session.UUID = preferredUuid;
+
+            return session;
+        }
+
         private async Task<(bool Success, MSession? Session, bool IsOfflineSession, bool RequiresElyByInjector)> TryCreateSessionAsync(LogWindow? logWindow)
         {
             if (AccountSelector.SelectedItem is ComboBoxItem item && item.Tag is AccountData acc && AccountSelector.Text == item.Content.ToString())
@@ -1070,13 +1207,13 @@ namespace RaytolfasLauncher
                     if (!string.IsNullOrWhiteSpace(acc.AccessToken) && !string.IsNullOrWhiteSpace(acc.UUID))
                     {
                         WriteLog(logWindow, T("launch.log.ms_saved_token"));
-                        return (true, new MSession(acc.Username, acc.AccessToken, acc.UUID), false, false);
+                        return (true, CreateMicrosoftSession(acc.Username, acc.AccessToken, acc.UUID), false, false);
                     }
 
                     if (!NetworkInterface.GetIsNetworkAvailable())
                     {
                         WriteLog(logWindow, T("launch.log.ms_offline"));
-                        return (true, MSession.CreateOfflineSession(acc.Username), true, false);
+                        return (true, CreateOfflineSession(acc.Username, acc.UUID), true, false);
                     }
 
                     WpfMessageBox.Show(T("launch.message.session_expired"));
@@ -1090,7 +1227,7 @@ namespace RaytolfasLauncher
                         return (true, elySession, false, true);
 
                     if (!string.IsNullOrWhiteSpace(acc.AccessToken) && !string.IsNullOrWhiteSpace(acc.UUID))
-                        return (true, new MSession(acc.Username, acc.AccessToken, acc.UUID), false, true);
+                        return (true, CreateElyBySession(acc.Username, acc.AccessToken, acc.UUID, acc.ClientToken), false, true);
 
                     return (false, null, false, true);
                 }
@@ -1137,6 +1274,7 @@ namespace RaytolfasLauncher
 
                 MSession refreshed = await loginHandler.AuthenticateSilently(storedAccount);
                 loginHandler.AccountManager.SaveAccounts();
+                refreshed.UserType = "msa";
 
                 account.Username = refreshed.Username ?? account.Username;
                 account.UUID = refreshed.UUID ?? account.UUID;
@@ -1158,7 +1296,7 @@ namespace RaytolfasLauncher
         {
             string normalizedUsername = NormalizeNickname(username);
             if (!settings.EnableElyBySkins || string.IsNullOrWhiteSpace(normalizedUsername) || !NetworkInterface.GetIsNetworkAvailable())
-                return MSession.CreateOfflineSession(normalizedUsername);
+                return CreateOfflineSession(normalizedUsername);
 
             try
             {
@@ -1168,7 +1306,7 @@ namespace RaytolfasLauncher
                 if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
                 {
                     WriteLog(logWindow, T("launch.log.elyby_profile_missing"));
-                    return MSession.CreateOfflineSession(normalizedUsername);
+                    return CreateOfflineSession(normalizedUsername);
                 }
 
                 response.EnsureSuccessStatusCode();
@@ -1177,17 +1315,17 @@ namespace RaytolfasLauncher
                 if (profile == null || string.IsNullOrWhiteSpace(profile.Id))
                 {
                     WriteLog(logWindow, T("launch.log.elyby_profile_missing"));
-                    return MSession.CreateOfflineSession(normalizedUsername);
+                    return CreateOfflineSession(normalizedUsername);
                 }
 
                 string profileName = string.IsNullOrWhiteSpace(profile.Name) ? normalizedUsername : profile.Name;
                 WriteLog(logWindow, T("launch.log.elyby_profile_found", profileName, profile.Id));
-                return new MSession(profileName, "0", profile.Id);
+                return CreateOfflineSession(profileName, profile.Id);
             }
             catch (Exception ex)
             {
                 WriteLog(logWindow, T("launch.log.elyby_profile_failed", ex.Message));
-                return MSession.CreateOfflineSession(normalizedUsername);
+                return CreateOfflineSession(normalizedUsername);
             }
         }
 
@@ -1229,7 +1367,7 @@ namespace RaytolfasLauncher
                 account.Username = username;
                 SaveSettings();
 
-                return new MSession(username, accessToken, uuid);
+                return CreateElyBySession(username, accessToken, uuid, clientToken);
             }
             catch (Exception ex)
             {

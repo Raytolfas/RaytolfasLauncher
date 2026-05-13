@@ -491,7 +491,7 @@
                                 <Slider x:Name="RamSlider" 
                                         Minimum="1024" 
                                         Maximum="16384" 
-                                        Value="4096" 
+                                        Value="2048" 
                                         TickFrequency="1024" 
                                         TickPlacement="None" 
                                         IsSnapToTickEnabled="True"/>
