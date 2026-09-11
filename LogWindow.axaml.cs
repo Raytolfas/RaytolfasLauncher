@@ -1,30 +1,18 @@
 // Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
-//
-// Raytolfas Launcher is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Raytolfas Launcher is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Raytolfas Launcher. If not, see <https://www.gnu.org/licenses/>.
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Windows;
-using System.Windows.Documents;
-using System.Windows.Media;
-using System.Windows.Threading;
-using MediaBrush = System.Windows.Media.Brush;
-using MediaBrushes = System.Windows.Media.Brushes;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace RaytolfasLauncher
 {
@@ -36,13 +24,18 @@ namespace RaytolfasLauncher
         private readonly string language;
         private const int MaxVisibleEntries = 700;
         private int flushRequested;
-        private int visibleEntries;
         private bool isCollectingLog4jEvent;
+
+        public ObservableCollection<LogEntry> Entries { get; } = new ObservableCollection<LogEntry>();
+
+        public LogWindow() : this(LocalizationManager.DefaultLanguage) { }
 
         public LogWindow(string language = LocalizationManager.DefaultLanguage)
         {
             InitializeComponent();
             this.language = LocalizationManager.NormalizeLanguage(language);
+            LogListBox.ItemsSource = Entries;
+
             flushTimer = new DispatcherTimer(DispatcherPriority.Background)
             {
                 Interval = TimeSpan.FromMilliseconds(180)
@@ -82,11 +75,11 @@ namespace RaytolfasLauncher
             if (Interlocked.Exchange(ref flushRequested, 1) != 0)
                 return;
 
-            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            Dispatcher.UIThread.Post(() =>
             {
                 if (!flushTimer.IsEnabled)
                     flushTimer.Start();
-            }));
+            }, DispatcherPriority.Background);
         }
 
         private void FlushTimer_Tick(object? sender, EventArgs e)
@@ -99,8 +92,10 @@ namespace RaytolfasLauncher
                 processed++;
             }
 
-            if (hasUiChanges)
-                LogBox.ScrollToEnd();
+            if (hasUiChanges && Entries.Count > 0)
+            {
+                LogListBox.ScrollIntoView(Entries[^1]);
+            }
 
             if (pendingLines.IsEmpty)
             {
@@ -181,7 +176,7 @@ namespace RaytolfasLauncher
                 {
                     Prefix = $"[{DateTime.Now:HH:mm:ss}] [Java/ERROR]",
                     Message = line.Replace("[JAVA ERROR]", "").Trim(),
-                    Brush = MediaBrushes.IndianRed
+                    Brush = Brushes.IndianRed
                 };
             }
 
@@ -191,7 +186,7 @@ namespace RaytolfasLauncher
                 {
                     Prefix = $"[{DateTime.Now:HH:mm:ss}] [Launcher/ERROR]",
                     Message = line.Replace("[ERROR]", "").Trim(),
-                    Brush = MediaBrushes.IndianRed
+                    Brush = Brushes.IndianRed
                 };
             }
 
@@ -201,7 +196,7 @@ namespace RaytolfasLauncher
                 {
                     Prefix = $"[{DateTime.Now:HH:mm:ss}] [Launcher]",
                     Message = line.Replace("[Launcher]", "").Trim(),
-                    Brush = MediaBrushes.WhiteSmoke
+                    Brush = Brushes.WhiteSmoke
                 };
             }
 
@@ -227,65 +222,70 @@ namespace RaytolfasLauncher
             };
         }
 
-        private static MediaBrush GetBrushForLevel(string level)
+        private static IBrush GetBrushForLevel(string level)
         {
             return level.ToUpperInvariant() switch
             {
-                "ERROR" => MediaBrushes.IndianRed,
-                "WARN" => MediaBrushes.Goldenrod,
-                "DEBUG" => MediaBrushes.LightSteelBlue,
-                _ => MediaBrushes.WhiteSmoke
+                "ERROR" => Brushes.IndianRed,
+                "WARN" => Brushes.Goldenrod,
+                "DEBUG" => Brushes.LightSteelBlue,
+                _ => Brushes.WhiteSmoke
             };
         }
 
         private void AppendEntry(LogEntry entry)
         {
-            LogParagraph.Inlines.Add(new Run(entry.Prefix + " ")
-            {
-                Foreground = MediaBrushes.Gray
-            });
-
-            LogParagraph.Inlines.Add(new Run(entry.Message)
-            {
-                Foreground = entry.Brush
-            });
-
-            LogParagraph.Inlines.Add(new LineBreak());
-            visibleEntries++;
+            Entries.Add(entry);
             TrimOldEntries();
         }
 
         private void TrimOldEntries()
         {
-            while (visibleEntries > MaxVisibleEntries && LogParagraph.Inlines.Count >= 3)
+            while (Entries.Count > MaxVisibleEntries)
             {
-                LogParagraph.Inlines.Remove(LogParagraph.Inlines.FirstInline!);
-                LogParagraph.Inlines.Remove(LogParagraph.Inlines.FirstInline!);
-                LogParagraph.Inlines.Remove(LogParagraph.Inlines.FirstInline!);
-                visibleEntries--;
+                Entries.RemoveAt(0);
             }
         }
 
-        private void Clear_Click(object sender, RoutedEventArgs e)
+        private void Clear_Click(object? sender, RoutedEventArgs e)
         {
-            LogParagraph.Inlines.Clear();
-            visibleEntries = 0;
+            Entries.Clear();
         }
 
-        private void Copy_Click(object sender, RoutedEventArgs e)
+        private async void Copy_Click(object? sender, RoutedEventArgs e)
         {
-            var range = new TextRange(LogBox.Document.ContentStart, LogBox.Document.ContentEnd);
-            System.Windows.Clipboard.SetText(range.Text);
+            var sb = new StringBuilder();
+            foreach (var entry in Entries)
+            {
+                sb.AppendLine($"{entry.PrefixText}{entry.Message}");
+            }
+
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard != null)
+            {
+                await clipboard.SetTextAsync(sb.ToString());
+            }
         }
 
-        private void Close_Click(object sender, RoutedEventArgs e) => Hide();
-        private void Window_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) { if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed) DragMove(); }
+        private void Close_Click(object? sender, RoutedEventArgs e) => Hide();
 
-        private sealed class LogEntry
+        private void Window_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                return;
+
+            if (e.Source is Visual source && PlatformHelper.IsInteractiveElement(source))
+                return;
+
+            BeginMoveDrag(e);
+        }
+
+        public sealed class LogEntry
         {
             public string Prefix { get; set; } = "";
+            public string PrefixText => string.IsNullOrEmpty(Prefix) ? "" : Prefix + " ";
             public string Message { get; set; } = "";
-            public MediaBrush Brush { get; set; } = MediaBrushes.WhiteSmoke;
+            public IBrush Brush { get; set; } = Brushes.WhiteSmoke;
         }
     }
 }

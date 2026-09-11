@@ -30,6 +30,17 @@ namespace RaytolfasLauncher
         public string ClientToken { get; set; } = "";
         public string Type { get; set; } = "Offline";
         public string MicrosoftAccountIdentifier { get; set; } = "";
+
+        [JsonIgnore]
+        public string TypeIcon => Type switch
+        {
+            "Microsoft" => "🔑",
+            "ElyBy" => "🦋",
+            _ => "👤"
+        };
+
+        [JsonIgnore]
+        public Avalonia.Media.Imaging.Bitmap? AvatarBitmap { get; set; }
     }
 
     public class LauncherSettings
@@ -138,11 +149,22 @@ namespace RaytolfasLauncher
         [JsonPropertyName("versions")]
         public List<string> Versions { get; set; } = new List<string>();
 
+        [JsonPropertyName("project_type")]
+        public string ProjectType { get; set; } = "mod";
+
         [JsonPropertyName("latest_version")]
         public string? LatestGameVersion { get; set; }
 
         public string CategoriesText => DisplayCategories.Count == 0 ? "modpack" : string.Join(", ", DisplayCategories);
         public string MetaText => $"{Downloads:N0} скачиваний • {Author}";
+
+        public string DownloadsFormatted => Downloads >= 1_000_000
+            ? $"{Downloads / 1_000_000.0:F1}M"
+            : Downloads >= 1_000
+                ? $"{Downloads / 1_000.0:F1}K"
+                : Downloads.ToString();
+
+        public string AuthorAndDownloads => $"от {Author} • {DownloadsFormatted} скачиваний";
     }
 
     public class ModrinthProjectVersion
@@ -189,6 +211,9 @@ namespace RaytolfasLauncher
 
         [JsonPropertyName("primary")]
         public bool Primary { get; set; }
+
+        [JsonPropertyName("size")]
+        public long Size { get; set; }
     }
 
     public class ModrinthGameVersionTag

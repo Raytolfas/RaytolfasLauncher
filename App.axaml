@@ -1,0 +1,16 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RaytolfasLauncher.App"
+             RequestedThemeVariant="Dark">
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://RaytolfasLauncher/Styles.axaml"/>
+    </Application.Styles>
+
+    <Application.Resources>
+        <SolidColorBrush x:Key="MenuBackground" Color="#1E1E1E"/>
+        <SolidColorBrush x:Key="MenuText" Color="White"/>
+        <SolidColorBrush x:Key="MenuHover" Color="#333333"/>
+        <SolidColorBrush x:Key="RayPurple" Color="#BB86FC"/>
+    </Application.Resources>
+</Application>

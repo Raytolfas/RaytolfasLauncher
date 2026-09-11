@@ -1,18 +1,5 @@
 // Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
-//
-// Raytolfas Launcher is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Raytolfas Launcher is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Raytolfas Launcher. If not, see <https://www.gnu.org/licenses/>.
 
 using System;
 using System.IO;
@@ -20,9 +7,12 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Windows;
+using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using CmlLib.Core.Auth.Microsoft;
-using WpfMessageBox = System.Windows.MessageBox;
 
 namespace RaytolfasLauncher
 {
@@ -33,15 +23,15 @@ namespace RaytolfasLauncher
         private readonly string language;
         private readonly HttpClient httpClient = new HttpClient();
 
+        public AccountWindow() : this(new LauncherSettings()) { }
+
         public AccountWindow(LauncherSettings settings)
         {
             InitializeComponent();
             this.settings = settings;
             language = LocalizationManager.NormalizeLanguage(settings.Language);
             microsoftAccountsPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "Raytolfas",
-                "Raytolfas Launcher",
+                PlatformHelper.GetDefaultSettingsFolder(),
                 "microsoft_accounts.json");
             ApplyLocalization();
             RefreshList();
@@ -67,30 +57,69 @@ namespace RaytolfasLauncher
         {
             AccountsListBox.ItemsSource = null;
             AccountsListBox.ItemsSource = settings.Accounts;
+
+            foreach (var acc in settings.Accounts)
+            {
+                if (acc.AvatarBitmap == null)
+                {
+                    _ = LoadAvatarAsync(acc);
+                }
+            }
+
+            if (settings.SelectedAccountIndex >= 0 && settings.SelectedAccountIndex < settings.Accounts.Count)
+            {
+                AccountsListBox.SelectedIndex = settings.SelectedAccountIndex;
+            }
         }
 
-        private void AddOffline_Click(object sender, RoutedEventArgs e)
+        private async Task LoadAvatarAsync(AccountData acc)
         {
-            string nick = Microsoft.VisualBasic.Interaction.InputBox(
-                T("account.input_prompt"),
-                T("account.input_title"),
-                "RaytolfasPlayer");
+            try
+            {
+                string url = $"https://minotar.net/avatar/{acc.Username}/24";
+                var bytes = await httpClient.GetByteArrayAsync(url);
+                using var stream = new MemoryStream(bytes);
+                acc.AvatarBitmap = new Bitmap(stream);
+                AccountsListBox.ItemsSource = null;
+                AccountsListBox.ItemsSource = settings.Accounts;
+            }
+            catch
+            {
+                try
+                {
+                    var uri = new Uri("avares://RaytolfasLauncher/Assets/no_internet.png");
+                    if (AssetLoader.Exists(uri))
+                    {
+                        acc.AvatarBitmap = new Bitmap(AssetLoader.Open(uri));
+                    }
+                }
+                catch { }
+            }
+        }
 
-            if (string.IsNullOrWhiteSpace(nick))
+        private async void AddOffline_Click(object? sender, RoutedEventArgs e)
+        {
+            var dialog = new AddAccountDialog(language);
+            bool? result = await dialog.ShowDialog<bool?>(this);
+
+            if (result != true || string.IsNullOrWhiteSpace(dialog.ResultUsername))
                 return;
+
+            string nick = dialog.ResultUsername;
 
             if (settings.Accounts.Any(a => a.Username.Equals(nick, StringComparison.OrdinalIgnoreCase)))
             {
-                WpfMessageBox.Show(T("account.duplicate"));
+                await RayMessageBox.ShowAsync(this, T("account.duplicate"), T("account.window_title"));
                 return;
             }
 
-            settings.Accounts.Add(new AccountData { Username = nick, Type = "Offline" });
+            var newAcc = new AccountData { Username = nick, Type = "Offline" };
+            settings.Accounts.Add(newAcc);
             RefreshList();
-            AccountsListBox.SelectedIndex = settings.Accounts.Count - 1;
+            AccountsListBox.SelectedItem = newAcc;
         }
 
-        private async void AddMicrosoft_Click(object sender, RoutedEventArgs e)
+        private async void AddMicrosoft_Click(object? sender, RoutedEventArgs e)
         {
             try
             {
@@ -104,38 +133,37 @@ namespace RaytolfasLauncher
 
                 if (settings.Accounts.Any(a => a.Type == "Microsoft" && a.UUID == session.UUID))
                 {
-                    WpfMessageBox.Show(T("account.microsoft_duplicate"));
+                    await RayMessageBox.ShowAsync(this, T("account.microsoft_duplicate"), T("account.window_title"));
                     return;
                 }
 
                 loginHandler.AccountManager.SaveAccounts();
 
-                settings.Accounts.Add(new AccountData
+                var newAcc = new AccountData
                 {
                     Username = session.Username ?? "",
                     Type = "Microsoft",
                     AccessToken = session.AccessToken ?? "",
                     UUID = session.UUID ?? "",
                     MicrosoftAccountIdentifier = session.UUID ?? ""
-                });
+                };
+                settings.Accounts.Add(newAcc);
 
                 RefreshList();
-                AccountsListBox.SelectedIndex = settings.Accounts.Count - 1;
+                AccountsListBox.SelectedItem = newAcc;
             }
             catch (Exception ex)
             {
-                WpfMessageBox.Show(T("account.login_error", ex.Message));
+                await RayMessageBox.ShowAsync(this, T("account.login_error", ex.Message), T("account.window_title"));
             }
         }
 
-        private async void AddElyBy_Click(object sender, RoutedEventArgs e)
+        private async void AddElyBy_Click(object? sender, RoutedEventArgs e)
         {
-            var loginWindow = new ElyByLoginWindow(language)
-            {
-                Owner = this
-            };
+            var loginWindow = new ElyByLoginWindow(language);
+            bool? result = await loginWindow.ShowDialog<bool?>(this);
 
-            if (loginWindow.ShowDialog() != true)
+            if (result != true)
                 return;
 
             try
@@ -170,29 +198,30 @@ namespace RaytolfasLauncher
 
                 if (settings.Accounts.Any(a => a.Type == "ElyBy" && a.UUID == uuid))
                 {
-                    WpfMessageBox.Show(T("elyby.duplicate"));
+                    await RayMessageBox.ShowAsync(this, T("elyby.duplicate"), T("account.window_title"));
                     return;
                 }
 
-                settings.Accounts.Add(new AccountData
+                var newAcc = new AccountData
                 {
                     Username = username,
                     Type = "ElyBy",
                     AccessToken = accessToken,
                     ClientToken = returnedClientToken,
                     UUID = uuid
-                });
+                };
+                settings.Accounts.Add(newAcc);
 
                 RefreshList();
-                AccountsListBox.SelectedIndex = settings.Accounts.Count - 1;
+                AccountsListBox.SelectedItem = newAcc;
             }
             catch (Exception ex)
             {
-                WpfMessageBox.Show(T("elyby.login_error", ex.Message));
+                await RayMessageBox.ShowAsync(this, T("elyby.login_error", ex.Message), T("account.window_title"));
             }
         }
 
-        private void DeleteAccount_Click(object sender, RoutedEventArgs e)
+        private void DeleteAccount_Click(object? sender, RoutedEventArgs e)
         {
             if (AccountsListBox.SelectedItem is not AccountData acc)
                 return;
@@ -201,19 +230,18 @@ namespace RaytolfasLauncher
             RefreshList();
         }
 
-        private void SelectAndClose_Click(object sender, RoutedEventArgs e)
+        private void SelectAndClose_Click(object? sender, RoutedEventArgs e)
         {
             if (AccountsListBox.SelectedIndex == -1)
             {
-                WpfMessageBox.Show(T("account.select_required"));
+                RayMessageBox.Show(T("account.select_required"), T("account.window_title"), this);
                 return;
             }
 
             settings.SelectedAccountIndex = AccountsListBox.SelectedIndex;
-            DialogResult = true;
-            Close();
+            Close(true);
         }
 
-        private void Close_Click(object sender, RoutedEventArgs e) => Close();
+        private void Close_Click(object? sender, RoutedEventArgs e) => Close(false);
     }
 }
