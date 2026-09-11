@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RaytolfasLauncher.MessageBoxWindow"
+        Title="Сообщение"
+        Width="420" MinHeight="180" MaxHeight="450" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        CanResize="False">
+
+    <Border Background="#121212" BorderBrush="#1A1A1A" BorderThickness="1" CornerRadius="16" Padding="20">
+        <Grid RowDefinitions="Auto,*,Auto">
+            <TextBlock x:Name="TitleText" Grid.Row="0" Text="СООБЩЕНИЕ" Foreground="#BB86FC" FontSize="15" FontWeight="Bold" Margin="0,0,0,12"/>
+
+            <ScrollViewer Grid.Row="1" MaxHeight="280" Margin="0,0,0,16">
+                <TextBlock x:Name="MessageText" Foreground="White" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="CancelButton" Content="ОТМЕНА" Click="Cancel_Click" IsVisible="False" Height="36" Width="100" Margin="0,0,8,0" Background="#2D2D2D" Foreground="White" FontWeight="SemiBold" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8" Cursor="Hand"/>
+                <Button x:Name="OkButton" Content="OK" Click="Ok_Click" Height="36" Width="100" Background="#BB86FC" Foreground="Black" FontWeight="Bold" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8" Cursor="Hand"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

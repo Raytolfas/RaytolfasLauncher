@@ -1,5 +1,8 @@
-using System.Windows;
-using WpfMessageBox = System.Windows.MessageBox;
+// Copyright (C) 2026 Raytolfas
+// This file is part of Raytolfas Launcher.
+
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 
 namespace RaytolfasLauncher
 {
@@ -7,9 +10,11 @@ namespace RaytolfasLauncher
     {
         private readonly string language;
 
-        public string LoginValue => LoginBox.Text.Trim();
-        public string PasswordValue => PasswordBox.Password;
-        public string TotpValue => TotpBox.Text.Trim();
+        public string LoginValue => LoginBox.Text?.Trim() ?? "";
+        public string PasswordValue => PasswordBox.Text ?? "";
+        public string TotpValue => TotpBox.Text?.Trim() ?? "";
+
+        public ElyByLoginWindow() : this(LocalizationManager.DefaultLanguage) { }
 
         public ElyByLoginWindow(string language)
         {
@@ -32,22 +37,20 @@ namespace RaytolfasLauncher
             LoginButton.Content = T("elyby.sign_in");
         }
 
-        private void Cancel_Click(object sender, RoutedEventArgs e)
+        private void Cancel_Click(object? sender, RoutedEventArgs e)
         {
-            DialogResult = false;
-            Close();
+            Close(false);
         }
 
-        private void Login_Click(object sender, RoutedEventArgs e)
+        private void Login_Click(object? sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(LoginValue) || string.IsNullOrWhiteSpace(PasswordValue))
             {
-                WpfMessageBox.Show(T("elyby.enter_credentials"));
+                RayMessageBox.Show(T("elyby.enter_credentials"), T("elyby.window_title"), this);
                 return;
             }
 
-            DialogResult = true;
-            Close();
+            Close(true);
         }
     }
 }

@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RaytolfasLauncher.UpdateWindow"
+        Title="Обновление лаунчера"
+        Height="300"
+        Width="450"
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        PointerPressed="Window_PointerPressed"
+        CanResize="False">
+
+    <Border BorderBrush="#1A1A1A" BorderThickness="1" CornerRadius="15" Background="#121212">
+        <Grid Margin="20">
+            <Button x:Name="CloseButton"
+                    Content="✕"
+                    Click="CloseUpdate_Click"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Width="30"
+                    Height="30"
+                    Background="Transparent"
+                    Foreground="Gray"
+                    FontSize="18"
+                    BorderThickness="0"
+                    Cursor="Hand"
+                    ZIndex="10"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"/>
+
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="UpdateTitleText"
+                           Text="ДОСТУПНО ОБНОВЛЕНИЕ"
+                           Foreground="#BB86FC"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,10"/>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
+                    <TextBlock x:Name="CurrentVersionLabel" Text="Текущая: " Foreground="Gray"/>
+                    <TextBlock x:Name="CurrentVerText" Text="0.0.1" Foreground="White" Margin="0,0,20,0"/>
+                    <TextBlock x:Name="NewVersionLabel" Text="Новая: " Foreground="Gray"/>
+                    <TextBlock x:Name="NewVerText" Text="0.0.2" Foreground="#03DAC6" FontWeight="Bold"/>
+                </StackPanel>
+
+                <TextBlock x:Name="ChangelogText"
+                           Text="testVER"
+                           Foreground="#C0C0C0"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           Margin="0,10"
+                           Opacity="0.8"/>
+
+                <ProgressBar x:Name="UpdateProgress"
+                             Height="10"
+                             Margin="0,20"
+                             IsVisible="False"
+                             Foreground="#BB86FC"
+                             Background="#2D2D2D"
+                             CornerRadius="5"/>
+
+                <Grid Margin="0,10,0,0" ColumnDefinitions="*,*">
+                    <Button x:Name="DownloadBtn" Grid.ColumnSpan="2" Content="СКАЧАТЬ И ОБНОВИТЬ" Click="DownloadBtn_Click" Height="40" Background="#BB86FC" Foreground="Black" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand"/>
+
+                    <Button x:Name="CancelBtn" Grid.Column="0" Content="ОТМЕНА" Click="CancelBtn_Click" Height="40" Margin="0,0,5,0" IsVisible="False" Background="#333333" Foreground="White" CornerRadius="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand"/>
+
+                    <Button x:Name="RestartBtn" Grid.Column="1" Content="ПЕРЕЗАПУСТИТЬ" Click="RestartBtn_Click" Height="40" Margin="5,0,0,0" IsVisible="False" Background="#03DAC6" Foreground="Black" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand"/>
+                </Grid>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

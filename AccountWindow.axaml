@@ -1,0 +1,49 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:RaytolfasLauncher"
+        x:Class="RaytolfasLauncher.AccountWindow"
+        Title="Управление аккаунтами"
+        Height="380"
+        Width="520"
+        Background="Transparent"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        CanResize="False">
+
+    <Border BorderBrush="#1A1A1A" BorderThickness="1" CornerRadius="20" Background="#121212">
+        <Grid Margin="20" ColumnDefinitions="220,*">
+            <StackPanel Grid.Column="0">
+                <TextBlock x:Name="AccountsTitleText" Text="ВАШИ АККАУНТЫ" Foreground="#BB86FC" FontSize="14" FontWeight="Bold" Margin="5,0,0,10"/>
+                <ListBox x:Name="AccountsListBox" Height="240" Background="#1E1E1E" BorderThickness="0" Margin="0,0,0,10" CornerRadius="8">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="local:AccountData">
+                            <Grid ColumnDefinitions="Auto,30,*" Margin="3,2">
+                                <TextBlock Grid.Column="0" Text="{Binding TypeIcon}" Foreground="#BB86FC" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="14"/>
+                                <Border Grid.Column="1" Width="24" Height="24" CornerRadius="4" Background="#2D2D2D" ClipToBounds="True">
+                                    <Image Source="{Binding AvatarBitmap}" Width="24" Height="24" Stretch="UniformToFill"/>
+                                </Border>
+                                <TextBlock Grid.Column="2" Text="{Binding Username}" Foreground="White" VerticalAlignment="Center" Margin="10,0,0,0" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Button x:Name="DeleteAccountButton" Content="УДАЛИТЬ" Click="DeleteAccount_Click" Background="#CF6679" Foreground="White" Height="30" FontWeight="Bold" CornerRadius="8" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Margin="20,40,0,0">
+                <Button x:Name="AddOfflineButton" Content="+ ДОБАВИТЬ ОФФЛАЙН" Click="AddOffline_Click" Height="45" Margin="0,0,0,12" Background="#2D2D2D" Foreground="White" BorderThickness="0" CornerRadius="10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+
+                <Button x:Name="AddMicrosoftButton" Content="+ MICROSOFT (ЛИЦЕНЗИЯ)" Click="AddMicrosoft_Click" Height="45" Background="#0078D4" Foreground="White" BorderThickness="0" CornerRadius="10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+
+                <Button x:Name="AddElyByButton" Content="+ ELY.BY" Click="AddElyBy_Click" Height="45" Margin="0,12,0,0" Background="#2D2D2D" Foreground="White" BorderThickness="0" CornerRadius="10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+
+                <Separator Margin="0,20" Background="#333333" Height="1"/>
+
+                <Button x:Name="UseAccountButton" Content="ИСПОЛЬЗОВАТЬ" Click="SelectAndClose_Click" Height="55" Background="#BB86FC" Foreground="Black" FontWeight="Bold" FontSize="14" CornerRadius="12" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+
+                <Button x:Name="CancelButton" Content="ОТМЕНА" Click="Close_Click" Margin="0,10,0,0" Background="Transparent" Foreground="Gray" BorderThickness="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

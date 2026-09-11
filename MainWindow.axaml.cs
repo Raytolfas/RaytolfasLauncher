@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 //
 // Raytolfas Launcher is free software: you can redistribute it and/or modify
@@ -15,37 +15,36 @@
 // along with Raytolfas Launcher. If not, see <https://www.gnu.org/licenses/>.
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
+using System.Net.Http;
+using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.Json;
-using System.Net.Http;
-using System.Collections.Generic;
-using System.Linq;
-using System.Windows.Input;
-using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
-using System.Windows.Threading;
-using System.Diagnostics;
-using System.Net.NetworkInformation;
-using WpfMessageBox = System.Windows.MessageBox;
-using WpfApplication = System.Windows.Application;
-using DiscordRPC;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using CmlLib.Core;
 using CmlLib.Core.Auth;
 using CmlLib.Core.Auth.Microsoft;
 using CmlLib.Core.Installers;
+using CmlLib.Core.Installer.Forge;
 using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
-using CmlLib.Core.Installer.Forge;
+using DiscordRPC;
 using XboxAuthNet.Game.Accounts;
-using MediaBrushes = System.Windows.Media.Brushes;
-using MediaColor = System.Windows.Media.Color;
-using MediaColorConverter = System.Windows.Media.ColorConverter;
 
 namespace RaytolfasLauncher
 {
@@ -55,16 +54,16 @@ namespace RaytolfasLauncher
         private MinecraftLauncher? launcher;
         private LauncherSettings settings = new LauncherSettings();
         private readonly DiscordRpcClient discordClientID = new DiscordRpcClient("1472589510742118400");
-        private readonly string currentVersion = "0.0.3.1";
-        private readonly string updateUrl = "https://github.com/Raytolfas/RaytolfasLauncherAssets/raw/refs/heads/main/Updates/latest.json";
+        private readonly string currentVersion = "0.0.4";
+        private readonly string updateUrl = "https://raw.githubusercontent.com/Raytolfas/Assets/refs/heads/main/RaytolfasLauncherMC/update.json";
         private const string ElyByProfileApiBaseUrl = "https://authserver.ely.by";
         private const string AuthlibInjectorLatestReleaseApiUrl = "https://api.github.com/repos/yushijinhun/authlib-injector/releases/latest";
-        private string settingsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Raytolfas", "Raytolfas Launcher");
+        private string settingsFolder = PlatformHelper.GetDefaultSettingsFolder();
         private string legacySettingsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "RaytolfasLauncher");
         private string settingsPath = string.Empty;
         private string legacySettingsPath = string.Empty;
         private string microsoftAccountsPath = string.Empty;
-        private string legacyMicrosoftAccountsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "cml_accounts.json");
+        private string legacyMicrosoftAccountsPath = Path.Combine(PlatformHelper.GetDefaultMinecraftFolder(), "cml_accounts.json");
         private DiscordRpcClient? discordClient;
         private readonly List<JavaProfile> javaProfiles = new List<JavaProfile>();
         private readonly HttpClient apiClient = new HttpClient();
@@ -76,58 +75,68 @@ namespace RaytolfasLauncher
         private readonly List<LoaderInstallOption> availableLoaderOptions = new List<LoaderInstallOption>();
         private FabricInstaller? fabricInstaller;
         private bool suppressOptionEvents;
+        private TrayIcon? trayIcon;
 
         private string ElyByToolsFolder => Path.Combine(settingsFolder, "tools", "elyby");
         private string ElyByAuthlibInjectorPath => Path.Combine(ElyByToolsFolder, "authlib-injector.jar");
 
         public MainWindow()
         {
-            try 
+            try
+            {
+                InitializeComponent();
+                this.Closing += MainWindow_Closing;
+
+                apiClient.DefaultRequestHeaders.Add("User-Agent", $"RaytolfasLauncher/{currentVersion}");
+                fabricInstaller = new FabricInstaller(apiClient);
+
+                settingsPath = Path.Combine(settingsFolder, "settings.json");
+                legacySettingsPath = Path.Combine(legacySettingsFolder, "settings.json");
+                microsoftAccountsPath = Path.Combine(settingsFolder, "microsoft_accounts.json");
+                MigrateLegacySettingsFile();
+                MigrateLegacyMicrosoftAccountsFile();
+                VersionText.Text = $"v{currentVersion}";
+
+                suppressOptionEvents = true;
+                LoadSettingsFromFile();
+                suppressOptionEvents = false;
+                InitializeLanguageSelector();
+                ApplyLocalization();
+
+                string mcPath = string.IsNullOrWhiteSpace(settings?.MinecraftPath)
+                    ? PlatformHelper.GetDefaultMinecraftFolder()
+                    : settings.MinecraftPath;
+
+                launcher = new MinecraftLauncher(new MinecraftPath(mcPath));
+
+                UpdateAccountList();
+                LoadVersions();
+                LoadAvatar();
+                InitializeModCenterDefaults();
+                InitTrayIcon();
+
+                RamSlider.PropertyChanged += (s, e) =>
                 {
-                    InitializeComponent();
-                    this.Closing += MainWindow_Closing;
+                    if (e.Property == Slider.ValueProperty)
+                    {
+                        RamValueText.Text = $"{(int)RamSlider.Value} MB";
+                    }
+                };
 
-                    apiClient.DefaultRequestHeaders.Add("User-Agent", $"RaytolfasLauncher/{currentVersion}");
-                    fabricInstaller = new FabricInstaller(apiClient);
-                    
-                    settingsPath = Path.Combine(settingsFolder, "settings.json");
-                    legacySettingsPath = Path.Combine(legacySettingsFolder, "settings.json");
-                    microsoftAccountsPath = Path.Combine(settingsFolder, "microsoft_accounts.json");
-                    MigrateLegacySettingsFile();
-                    MigrateLegacyMicrosoftAccountsFile();
-                    VersionText.Text = $"v{currentVersion}";
-                    
-                    suppressOptionEvents = true;
-                    LoadSettingsFromFile();
-                    suppressOptionEvents = false;
-                    InitializeLanguageSelector();
-                    ApplyLocalization();
-                    
-                    AccountSelector.IsEditable = false; 
+                InitDiscordRPC();
 
-                    string mcPath = string.IsNullOrWhiteSpace(settings?.MinecraftPath) 
-                        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft")
-                        : settings.MinecraftPath;
-
-                    launcher = new MinecraftLauncher(new MinecraftPath(mcPath));
-
-                    UpdateAccountList();
-                    LoadVersions();
-                    LoadAvatar();
-                    InitializeModCenterDefaults();
-
-                    InitDiscordRPC();
-                    this.Loaded += async (s, e) => {
-                        await CheckForUpdates();
-                    };
-                }
-                catch (Exception ex)
+                this.Loaded += async (s, e) =>
                 {
-                    string startupLanguage = LocalizationManager.NormalizeLanguage(settings.Language);
-                    System.Windows.MessageBox.Show(LocalizationManager.Get("launch.startup_critical", startupLanguage)
-                        .Replace("{0}", ex.Message)
-                        .Replace("{1}", ex.StackTrace ?? ""));
-                }
+                    await CheckForUpdates();
+                };
+            }
+            catch (Exception ex)
+            {
+                string startupLanguage = LocalizationManager.NormalizeLanguage(settings.Language);
+                RayMessageBox.Show(LocalizationManager.Get("launch.startup_critical", startupLanguage)
+                    .Replace("{0}", ex.Message)
+                    .Replace("{1}", ex.StackTrace ?? ""), "Critical Error", this);
+            }
         }
 
         private string T(string key) => LocalizationManager.Get(key, currentLanguage);
@@ -151,9 +160,9 @@ namespace RaytolfasLauncher
                 });
             }
 
-            foreach (ComboBoxItem item in LanguageBox.Items)
+            foreach (var rawItem in LanguageBox.Items)
             {
-                if (string.Equals(item.Tag?.ToString(), selectedLanguage, StringComparison.OrdinalIgnoreCase))
+                if (rawItem is ComboBoxItem item && string.Equals(item.Tag?.ToString(), selectedLanguage, StringComparison.OrdinalIgnoreCase))
                 {
                     LanguageBox.SelectedItem = item;
                     break;
@@ -167,42 +176,41 @@ namespace RaytolfasLauncher
         private void ApplyLocalization()
         {
             Title = T("window.title");
-            AccountSectionLabel.Content = T("main.account");
-            VersionSectionLabel.Content = T("main.version");
+            AccountSectionLabel.Text = T("main.account");
+            VersionSectionLabel.Text = T("main.version");
             CheckBoxForce.Content = T("main.reinstall_files");
             LaunchBtn.Content = T("main.play");
             StatusLabel.Text = T("main.status.preparing");
 
             SettingsTitleText.Text = T("settings.title");
-            BackgroundLabel.Content = T("settings.background");
+            BackgroundLabel.Text = T("settings.background");
             SelectBackgroundButton.Content = T("settings.select");
-            GameFolderLabel.Content = T("settings.game_folder");
+            GameFolderLabel.Text = T("settings.game_folder");
             BrowsePathButton.Content = T("settings.browse");
-            OptionsLabel.Content = T("settings.options");
+            OptionsLabel.Text = T("settings.options");
             CbDiscordRPC.Content = T("settings.discord");
             CbHideLauncher.Content = T("settings.hide_launcher");
             CbShowAvatar.Content = T("settings.show_avatar");
             CbOpenLogWindow.Content = T("settings.open_logs");
             CbElyBySkins.Content = T("settings.elyby_skins");
-            LanguageLabel.Content = T("settings.language");
-            JavaProfileLabel.Content = T("settings.java_profile");
-            JavaPathLabel.Content = T("settings.java_path");
-            ResolutionLabel.Content = T("settings.resolution");
+            LanguageLabel.Text = T("settings.language");
+            JavaProfileLabel.Text = T("settings.java_profile");
+            JavaPathLabel.Text = T("settings.java_path");
+            ResolutionLabel.Text = T("settings.resolution");
             CbFullScreen.Content = T("settings.fullscreen");
-            JavaArgsLabel.Content = T("settings.java_args");
-            VersionFiltersLabel.Content = T("settings.show_versions");
+            JavaArgsLabel.Text = T("settings.java_args");
+            VersionFiltersLabel.Text = T("settings.show_versions");
             CbReleases.Content = T("settings.releases");
             CbSnapshots.Content = T("settings.snapshots");
             CbModded.Content = T("settings.modded");
-            RamLabel.Content = T("settings.ram");
+            RamLabel.Text = T("settings.ram");
             SaveSettingsButton.Content = T("settings.save");
 
             ModCenterTitleText.Text = T("modcenter.title");
             ModCenterSubtitleText.Text = T("modcenter.subtitle");
             LoadersTabButton.Content = T("modcenter.tab.loaders");
-            ModrinthTabButton.Content = T("modcenter.tab.pack");
-            TrayOpenMenuItem.Header = T("tray.open");
-            TrayExitMenuItem.Header = T("tray.exit");
+            OpenModpacksButton.Content = T("modcenter.tab.pack");
+
             RootFolderMenuItem.Header = T("folders.menu.root");
             ModsFolderMenuItem.Header = T("folders.menu.mods");
             SavesFolderMenuItem.Header = T("folders.menu.saves");
@@ -212,15 +220,11 @@ namespace RaytolfasLauncher
             LoaderVersionLabel.Text = T("modcenter.loader_build");
             RefreshLoaderButton.Content = T("modcenter.refresh");
             InstallLoaderButton.Content = T("modcenter.install_version");
-            LoadersInfoTitleText.Text = T("modcenter.loaders.info_title");
-            LoadersInfoLine1Text.Text = T("modcenter.loaders.info_line1");
-            LoadersInfoLine2Text.Text = T("modcenter.loaders.info_line2");
-            MrPackTitleText.Text = T("modcenter.pack.title");
-            MrPackSubtitleText.Text = T("modcenter.pack.subtitle");
+            OpenModpacksButton.Content = T("modcenter.tab.pack");
 
             ApplyAvatarVisibility();
             InitializeJavaProfiles();
-            SetModCenterStatus(T("modcenter.status.ready"));
+            SetModCenterStatus("");
             if (settings.ShowDiscordStatus)
                 SetDiscordStatus(T("discord.state.launcher"), T("discord.details.choosing_version"));
         }
@@ -231,7 +235,7 @@ namespace RaytolfasLauncher
                 return;
 
             bool showAvatar = settings.ShowAccountAvatar;
-            PlayerAvatarContainer.Visibility = showAvatar ? Visibility.Visible : Visibility.Collapsed;
+            PlayerAvatarContainer.IsVisible = showAvatar;
             if (!showAvatar)
             {
                 PlayerAvatar.Source = null;
@@ -247,21 +251,30 @@ namespace RaytolfasLauncher
             logWindow?.WriteLog(text);
         }
 
-        private async void CheckUpdateBtn_Click(object sender, RoutedEventArgs e)
+        private async void CheckUpdateBtn_Click(object? sender, RoutedEventArgs e)
         {
-            bool found = await CheckForUpdates(isManual: true);
+            await CheckForUpdates(isManual: true);
         }
 
         private async Task<bool> CheckForUpdates(bool isManual = false)
         {
-            string versionUrl = updateUrl;
+            string separator = updateUrl.Contains('?') ? "&" : "?";
+            string versionUrl = $"{updateUrl}{separator}_t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
 
             try
             {
                 using var client = new HttpClient();
                 client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher");
+                client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+                {
+                    NoCache = true,
+                    NoStore = true,
+                    MustRevalidate = true
+                };
+                client.DefaultRequestHeaders.Pragma.ParseAdd("no-cache");
+
                 var json = await client.GetStringAsync(versionUrl);
-                var info = System.Text.Json.JsonSerializer.Deserialize<UpdateInfo>(json);
+                var info = JsonSerializer.Deserialize<UpdateInfo>(json, jsonOptions);
 
                 if (info != null)
                 {
@@ -270,30 +283,68 @@ namespace RaytolfasLauncher
 
                     if (latestVersion > localVersion)
                     {
-                        var upWin = new UpdateWindow(currentVersion, info.Version, info.Changelog, info.DownloadUrl, currentLanguage);
-                        upWin.Owner = this;
-                        upWin.ShowDialog();
+                        string targetDownloadUrl = info.GetPlatformDownloadUrl();
+                        var upWin = new UpdateWindow(currentVersion, info.Version, info.Changelog, targetDownloadUrl, currentLanguage);
+                        await upWin.ShowDialog(this);
                         return true;
                     }
                     else if (isManual)
                     {
-                        System.Windows.MessageBox.Show(T("update.latest"), T("update.latest_title"));
+                        await RayMessageBox.ShowAsync(this, T("update.latest"), T("update.latest_title"));
                     }
                 }
             }
             catch (Exception ex)
             {
                 if (isManual)
-                    System.Windows.MessageBox.Show(T("update.check_error", ex.Message), T("launch.message.error_title"));
+                    await RayMessageBox.ShowAsync(this, T("update.check_error", ex.Message), T("launch.message.error_title"));
             }
             return false;
         }
 
         public class UpdateInfo
         {
+            [System.Text.Json.Serialization.JsonPropertyName("version")]
             public string Version { get; set; } = "";
+
+            [System.Text.Json.Serialization.JsonPropertyName("download_url")]
             public string DownloadUrl { get; set; } = "";
+
+            [System.Text.Json.Serialization.JsonPropertyName("windows_url")]
+            public string? WindowsUrl { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("download_url_windows")]
+            public string? DownloadUrlWindows { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("linux_url")]
+            public string? LinuxUrl { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("download_url_linux")]
+            public string? DownloadUrlLinux { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("changelog")]
             public string Changelog { get; set; } = "";
+
+            public string GetPlatformDownloadUrl()
+            {
+                if (PlatformHelper.IsLinux)
+                {
+                    if (!string.IsNullOrWhiteSpace(LinuxUrl))
+                        return LinuxUrl;
+                    if (!string.IsNullOrWhiteSpace(DownloadUrlLinux))
+                        return DownloadUrlLinux;
+                }
+
+                if (PlatformHelper.IsWindows)
+                {
+                    if (!string.IsNullOrWhiteSpace(WindowsUrl))
+                        return WindowsUrl;
+                    if (!string.IsNullOrWhiteSpace(DownloadUrlWindows))
+                        return DownloadUrlWindows;
+                }
+
+                return DownloadUrl;
+            }
         }
 
         private void UpdateAccountList()
@@ -308,12 +359,13 @@ namespace RaytolfasLauncher
                     "ElyBy" => "🦋 ",
                     _ => "👤 "
                 };
-                AccountSelector.Items.Add(new ComboBoxItem { 
+                AccountSelector.Items.Add(new ComboBoxItem
+                {
                     Content = $"{icon}{acc.Username}",
-                    Tag = acc 
+                    Tag = acc
                 });
             }
-            
+
             if (settings.Accounts.Count > 0 && settings.SelectedAccountIndex < settings.Accounts.Count)
                 AccountSelector.SelectedIndex = settings.SelectedAccountIndex;
             else if (settings.Accounts.Count > 0)
@@ -333,7 +385,7 @@ namespace RaytolfasLauncher
             UpdateAccountList();
         }
 
-        private void AccountSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void AccountSelector_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (AccountSelector.SelectedItem is ComboBoxItem item && item.Tag is AccountData acc)
             {
@@ -349,7 +401,7 @@ namespace RaytolfasLauncher
                 UpdateAvatar(acc.Username);
         }
 
-        private void UpdateAvatar(string username)
+        private async void UpdateAvatar(string username)
         {
             if (!settings.ShowAccountAvatar)
             {
@@ -357,28 +409,33 @@ namespace RaytolfasLauncher
                 return;
             }
 
-            try 
+            try
             {
                 if (!NetworkInterface.GetIsNetworkAvailable())
                 {
-                    PlayerAvatar.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/no_internet.png"));
+                    var uri = new Uri("avares://RaytolfasLauncher/Assets/no_internet.png");
+                    if (AssetLoader.Exists(uri))
+                        PlayerAvatar.Source = new Bitmap(AssetLoader.Open(uri));
                     return;
                 }
 
-                var bitmap = new BitmapImage();
-                bitmap.BeginInit();
-                bitmap.UriSource = new Uri($"https://minotar.net/avatar/{username}/32", UriKind.Absolute);
-                bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                bitmap.EndInit();
-                PlayerAvatar.Source = bitmap;
+                byte[] bytes = await apiClient.GetByteArrayAsync($"https://minotar.net/avatar/{username}/32");
+                using var ms = new MemoryStream(bytes);
+                PlayerAvatar.Source = new Bitmap(ms);
             }
             catch
             {
-                PlayerAvatar.Source = new BitmapImage(new Uri("https://minotar.net/avatar/char/32", UriKind.Absolute));
+                try
+                {
+                    byte[] bytes = await apiClient.GetByteArrayAsync("https://minotar.net/avatar/char/32");
+                    using var ms = new MemoryStream(bytes);
+                    PlayerAvatar.Source = new Bitmap(ms);
+                }
+                catch { }
             }
         }
 
-        private async void LaunchBtn_Click(object sender, RoutedEventArgs e)
+        private async void LaunchBtn_Click(object? sender, RoutedEventArgs e)
         {
             if (VersionBox.SelectedItem is not ComboBoxItem selectedVer || launcher == null)
                 return;
@@ -406,7 +463,7 @@ namespace RaytolfasLauncher
             MSession session = sessionResult.Session;
             bool isNetworkAvailable = NetworkInterface.GetIsNetworkAvailable();
 
-            DownloadPanel.Visibility = Visibility.Visible;
+            DownloadPanel.IsVisible = true;
             LaunchBtn.IsEnabled = false;
             DownloadProgress.Value = 0;
             StatusLabel.Text = T("main.status.preparing");
@@ -436,21 +493,22 @@ namespace RaytolfasLauncher
                     else
                     {
                         WriteLog(logWindow, T("launch.log.force_delete"));
-                    
-                        string versionPath = System.IO.Path.Combine(settings.MinecraftPath, "versions", versionId);
-                        string jarPath = System.IO.Path.Combine(versionPath, $"{versionId}.jar");
 
-                        if (System.IO.File.Exists(jarPath))
+                        string versionPath = Path.Combine(settings.MinecraftPath, "versions", versionId);
+                        string jarPath = Path.Combine(versionPath, $"{versionId}.jar");
+
+                        if (File.Exists(jarPath))
                         {
-                            System.IO.File.Delete(jarPath);
+                            File.Delete(jarPath);
                             WriteLog(logWindow, T("launch.log.force_deleted"));
                         }
                     }
                 }
 
-                if (!System.IO.Directory.Exists(System.IO.Path.Combine(settings.MinecraftPath, "versions", versionId)))
+                string targetVersionDir = Path.Combine(settings.MinecraftPath, "versions", versionId);
+                if (!Directory.Exists(targetVersionDir))
                 {
-                    System.IO.Directory.CreateDirectory(System.IO.Path.Combine(settings.MinecraftPath, "versions", versionId));
+                    Directory.CreateDirectory(targetVersionDir);
                 }
 
                 string? lastInstallMessage = null;
@@ -467,7 +525,7 @@ namespace RaytolfasLauncher
                     }
 
                     lastFileUiUpdate = DateTime.UtcNow;
-                    Dispatcher.BeginInvoke(new Action(() =>
+                    Dispatcher.UIThread.Post(() =>
                     {
                         DownloadProgress.Maximum = Math.Max(args.TotalTasks, 1);
                         DownloadProgress.Value = args.ProgressedTasks;
@@ -479,7 +537,7 @@ namespace RaytolfasLauncher
                             lastInstallMessage = message;
                             WriteLog(logWindow, "[Launcher] " + message);
                         }
-                    }), DispatcherPriority.Background);
+                    }, DispatcherPriority.Background);
                 };
 
                 byteProgressHandler = (s, args) =>
@@ -488,11 +546,11 @@ namespace RaytolfasLauncher
                         return;
 
                     lastByteUpdate = DateTime.UtcNow;
-                    Dispatcher.BeginInvoke(new Action(() =>
+                    Dispatcher.UIThread.Post(() =>
                     {
                         int percent = (int)Math.Round(args.ToRatio() * 100);
                         StatusLabel.Text = T("main.status.downloading_files", percent);
-                    }), DispatcherPriority.Background);
+                    }, DispatcherPriority.Background);
                 };
 
                 launcher.FileProgressChanged += fileProgressHandler;
@@ -504,11 +562,11 @@ namespace RaytolfasLauncher
                 }
                 else
                 {
-                    string localVersionPath = System.IO.Path.Combine(settings.MinecraftPath, "versions", versionId);
-                    if (!System.IO.Directory.Exists(localVersionPath))
+                    string localVersionPath = Path.Combine(settings.MinecraftPath, "versions", versionId);
+                    if (!Directory.Exists(localVersionPath))
                     {
-                        WpfMessageBox.Show(T("launch.message.version_missing"));
-                        DownloadPanel.Visibility = Visibility.Collapsed;
+                        await RayMessageBox.ShowAsync(this, T("launch.message.version_missing"), T("launch.message.error_title"));
+                        DownloadPanel.IsVisible = false;
                         LaunchBtn.IsEnabled = true;
                         return;
                     }
@@ -521,23 +579,25 @@ namespace RaytolfasLauncher
                 {
                     Session = session,
                     MaximumRamMb = launchRamMb,
-
                     FullScreen = CbFullScreen.IsChecked ?? false,
                     ScreenWidth = int.TryParse(WinWidthBox.Text, out int w) ? w : 854,
                     ScreenHeight = int.TryParse(WinHeightBox.Text, out int h) ? h : 480,
-                    
                     JavaPath = resolvedJavaPath,
                 };
+
+                string modpackDir = Path.Combine(settings.MinecraftPath, "modpacks", versionId);
+                if (Directory.Exists(modpackDir))
+                {
+                    launchOption.Path = new MinecraftPath(settings.MinecraftPath, modpackDir);
+                }
 
                 if (!string.IsNullOrWhiteSpace(JavaArgsBox.Text))
                 {
                     var customArgs = new List<CmlLib.Core.ProcessBuilder.MArgument>();
-                    
                     foreach (var arg in JavaArgsBox.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
                     {
                         customArgs.Add(new CmlLib.Core.ProcessBuilder.MArgument(arg));
                     }
-
                     launchOption.ExtraJvmArguments = customArgs;
                 }
 
@@ -557,7 +617,7 @@ namespace RaytolfasLauncher
 
                 var process = await launcher.BuildProcessAsync(versionId, launchOption);
 
-                DownloadPanel.Visibility = Visibility.Collapsed;
+                DownloadPanel.IsVisible = false;
                 StatusLabel.Text = T("main.status.launching");
                 DownloadProgress.Value = 0;
                 process.StartInfo.UseShellExecute = false;
@@ -571,18 +631,18 @@ namespace RaytolfasLauncher
                 process.Exited += (s, e) =>
                 {
                     string? crashHint = process.ExitCode != 0 ? TryGetMinecraftCrashHint() : null;
-                    Dispatcher.BeginInvoke(new Action(() =>
+                    Dispatcher.UIThread.Post(() =>
                     {
                         if (process.ExitCode != 0)
                         {
                             if (!string.IsNullOrWhiteSpace(crashHint))
                             {
                                 WriteLog(logWindow, T("launch.log.crash_hint", crashHint));
-                                WpfMessageBox.Show(T("launch.message.crashed_with_hint", process.ExitCode, crashHint));
+                                RayMessageBox.Show(T("launch.message.crashed_with_hint", process.ExitCode, crashHint), T("launch.message.error_title"), this);
                             }
                             else
                             {
-                                WpfMessageBox.Show(T("launch.message.crashed", process.ExitCode));
+                                RayMessageBox.Show(T("launch.message.crashed", process.ExitCode), T("launch.message.error_title"), this);
                             }
                         }
 
@@ -591,12 +651,12 @@ namespace RaytolfasLauncher
 
                         SetDiscordStatus(T("discord.state.launcher"), T("discord.details.choosing_version"));
                         WriteLog(logWindow, T("launch.log.game_closed"));
-                        this.Focus();
+                        this.Activate();
 
-                        DownloadPanel.Visibility = Visibility.Collapsed;
+                        DownloadPanel.IsVisible = false;
                         StatusLabel.Text = "";
                         LaunchBtn.IsEnabled = true;
-                    }), DispatcherPriority.Background);
+                    }, DispatcherPriority.Background);
                 };
 
                 string? serverDisplay = !string.IsNullOrWhiteSpace(settings.LastServerName)
@@ -610,9 +670,9 @@ namespace RaytolfasLauncher
             catch (Exception ex)
             {
                 WriteLog(logWindow, T("launch.log.launch_error", ex.Message));
-                WpfMessageBox.Show(T("launch.message.error", ex.Message), T("launch.message.error_title"));
+                await RayMessageBox.ShowAsync(this, T("launch.message.error", ex.Message), T("launch.message.error_title"));
                 this.Show();
-                DownloadPanel.Visibility = Visibility.Collapsed;
+                DownloadPanel.IsVisible = false;
                 StatusLabel.Text = "";
                 LaunchBtn.IsEnabled = true;
             }
@@ -630,13 +690,25 @@ namespace RaytolfasLauncher
         {
             if (string.IsNullOrEmpty(path) || !File.Exists(path))
             {
-                MainBgImage.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/background.png"));
-                Settings.CustomBackgroundPath = "";
+                var uri = new Uri("avares://RaytolfasLauncher/Assets/background.png");
+                if (AssetLoader.Exists(uri))
+                    MainBgImage.Source = new Bitmap(AssetLoader.Open(uri));
+                settings.CustomBackgroundPath = "";
             }
             else
             {
-                MainBgImage.Source = new BitmapImage(new Uri(path));
-                Settings.CustomBackgroundPath = path;
+                try
+                {
+                    MainBgImage.Source = new Bitmap(path);
+                    settings.CustomBackgroundPath = path;
+                }
+                catch
+                {
+                    var uri = new Uri("avares://RaytolfasLauncher/Assets/background.png");
+                    if (AssetLoader.Exists(uri))
+                        MainBgImage.Source = new Bitmap(AssetLoader.Open(uri));
+                    settings.CustomBackgroundPath = "";
+                }
             }
         }
 
@@ -647,56 +719,62 @@ namespace RaytolfasLauncher
                 if (File.Exists(settingsPath))
                 {
                     string json = File.ReadAllText(settingsPath);
-                    settings = JsonSerializer.Deserialize<LauncherSettings>(json) ?? new LauncherSettings();
+                    settings = JsonSerializer.Deserialize<LauncherSettings>(json, jsonOptions) ?? new LauncherSettings();
+                }
+                else
+                {
+                    settings = new LauncherSettings();
                 }
             }
-            catch { settings = new LauncherSettings(); }
+            catch
+            {
+                settings = new LauncherSettings();
+            }
 
-            settings.Language = LocalizationManager.NormalizeLanguage(settings.Language);
-            currentLanguage = settings.Language;
+            Settings = settings;
 
             if (string.IsNullOrWhiteSpace(settings.MinecraftPath))
-            {
-                settings.MinecraftPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
-            }
-
-            if (string.IsNullOrEmpty(settings.CustomBackgroundPath) || !File.Exists(settings.CustomBackgroundPath))
-            {
-                MainBgImage.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/background.png"));
-                BgPathBox.Text = ""; 
-            }
-            else
-            {
-                MainBgImage.Source = new BitmapImage(new Uri(settings.CustomBackgroundPath));
-                BgPathBox.Text = settings.CustomBackgroundPath;
-            }
+                settings.MinecraftPath = PlatformHelper.GetDefaultMinecraftFolder();
 
             CbDiscordRPC.IsChecked = settings.ShowDiscordStatus;
             CbHideLauncher.IsChecked = settings.HideLauncherOnPlay;
             CbShowAvatar.IsChecked = settings.ShowAccountAvatar;
             CbOpenLogWindow.IsChecked = settings.OpenLogWindowOnLaunch;
             CbElyBySkins.IsChecked = settings.EnableElyBySkins;
-            
-            settings.SelectedRam = NormalizeConfiguredRamMb(settings.SelectedRam);
-            RamSlider.Value = settings.SelectedRam;
-            PathBox.Text = settings.MinecraftPath;
-            JavaArgsBox.Text = settings.JvmArgs;
-            WinWidthBox.Text = settings.WindowWidth.ToString();
-            WinHeightBox.Text = settings.WindowHeight.ToString();
-            CbFullScreen.IsChecked = settings.IsFullScreen;
+            currentLanguage = LocalizationManager.NormalizeLanguage(settings.Language);
+
             CbReleases.IsChecked = settings.ShowReleases;
             CbSnapshots.IsChecked = settings.ShowSnapshots;
             CbModded.IsChecked = settings.ShowModded;
 
-            InitializeJavaProfiles();
+            RamSlider.Value = NormalizeConfiguredRamMb(settings.SelectedRam);
+            RamValueText.Text = $"{(int)RamSlider.Value} MB";
+            WinWidthBox.Text = settings.WindowWidth.ToString();
+            WinHeightBox.Text = settings.WindowHeight.ToString();
+            CbFullScreen.IsChecked = settings.IsFullScreen;
+
+            BgPathBox.Text = settings.CustomBackgroundPath;
+            SetCustomBackground(settings.CustomBackgroundPath);
+
+            PathBox.Text = settings.MinecraftPath;
+            JavaArgsBox.Text = settings.JvmArgs;
+
+            if (launcher != null)
+                launcher = new MinecraftLauncher(new MinecraftPath(settings.MinecraftPath));
+
             ApplyAvatarVisibility();
+            InitializeLanguageSelector();
+            InitializeJavaProfiles();
         }
 
         private void MigrateLegacySettingsFile()
         {
             try
             {
-                if (File.Exists(settingsPath) || !File.Exists(legacySettingsPath))
+                if (File.Exists(settingsPath))
+                    return;
+
+                if (!File.Exists(legacySettingsPath))
                     return;
 
                 Directory.CreateDirectory(settingsFolder);
@@ -711,7 +789,10 @@ namespace RaytolfasLauncher
         {
             try
             {
-                if (File.Exists(microsoftAccountsPath) || !File.Exists(legacyMicrosoftAccountsPath))
+                if (File.Exists(microsoftAccountsPath))
+                    return;
+
+                if (!File.Exists(legacyMicrosoftAccountsPath))
                     return;
 
                 Directory.CreateDirectory(settingsFolder);
@@ -724,15 +805,10 @@ namespace RaytolfasLauncher
 
         private void InitializeModCenterDefaults()
         {
-            if (LoaderTypeBox.Items.Count == 0)
-            {
-                LoaderTypeBox.Items.Add(new ComboBoxItem { Content = "Fabric", Tag = "fabric" });
-                LoaderTypeBox.Items.Add(new ComboBoxItem { Content = "Forge", Tag = "forge" });
-            }
-
+            LoaderTypeBox.Items.Clear();
+            LoaderTypeBox.Items.Add(new ComboBoxItem { Content = "Fabric", Tag = "fabric" });
+            LoaderTypeBox.Items.Add(new ComboBoxItem { Content = "Forge", Tag = "forge" });
             LoaderTypeBox.SelectedIndex = 0;
-            SetModCenterTab(showLoaders: true);
-            SetModCenterStatus(T("modcenter.status.ready"));
         }
 
         private void InitializeJavaProfiles()
@@ -741,13 +817,14 @@ namespace RaytolfasLauncher
             javaProfiles.Add(new JavaProfile { Id = JavaProfileAutoId, Name = T("settings.java.auto"), JavaPath = null });
             javaProfiles.Add(new JavaProfile { Id = JavaProfileCustomId, Name = T("settings.java.custom"), JavaPath = settings.JavaPath });
 
-            foreach (var path in DiscoverJavaPaths())
+            foreach (var path in PlatformHelper.DiscoverJavaPaths(settings.JavaPath))
             {
                 AddJavaProfileFromPath(path);
             }
 
             JavaProfileBox.SelectionChanged -= JavaProfileBox_SelectionChanged;
             JavaProfileBox.Items.Clear();
+
             foreach (var profile in javaProfiles)
             {
                 JavaProfileBox.Items.Add(new ComboBoxItem { Content = profile.Name, Tag = profile });
@@ -775,57 +852,13 @@ namespace RaytolfasLauncher
             JavaProfileBox.SelectionChanged += JavaProfileBox_SelectionChanged;
         }
 
-        private void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void LanguageBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (LanguageBox.SelectedItem is not ComboBoxItem item)
                 return;
 
             currentLanguage = LocalizationManager.NormalizeLanguage(item.Tag?.ToString());
             ApplyLocalization();
-        }
-
-        private IEnumerable<string> DiscoverJavaPaths()
-        {
-            var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            void AddPath(string? path)
-            {
-                if (string.IsNullOrWhiteSpace(path)) return;
-                string normalized = path.Trim('"');
-                if (File.Exists(normalized)) paths.Add(normalized);
-            }
-
-            AddPath(settings.JavaPath);
-
-            string? javaHome = Environment.GetEnvironmentVariable("JAVA_HOME");
-            if (!string.IsNullOrWhiteSpace(javaHome))
-            {
-                AddPath(Path.Combine(javaHome, "bin", "javaw.exe"));
-            }
-
-            string[] roots =
-            {
-                @"C:\Program Files\Java",
-                @"C:\Program Files (x86)\Java",
-                @"C:\Program Files\Eclipse Adoptium",
-                @"C:\Program Files\AdoptOpenJDK",
-                @"C:\Program Files\Amazon Corretto",
-                @"C:\Program Files\Microsoft",
-                @"C:\Program Files\BellSoft\LibericaJDK",
-                @"C:\Program Files\Zulu"
-            };
-
-            foreach (var root in roots)
-            {
-                if (!Directory.Exists(root)) continue;
-
-                foreach (var dir in Directory.EnumerateDirectories(root))
-                {
-                    AddPath(Path.Combine(dir, "bin", "javaw.exe"));
-                }
-            }
-
-            return paths;
         }
 
         private async Task<string?> GetResolvedJavaPathForLaunchAsync(string versionId)
@@ -858,13 +891,13 @@ namespace RaytolfasLauncher
                 }
             }
 
-            var discovered = DiscoverJavaPaths()
+            var discovered = PlatformHelper.DiscoverJavaPaths(settings.JavaPath)
                 .OrderBy(path => IsLikely32BitJava(path))
                 .ThenByDescending(path => TryReadJavaMajorVersion(path) ?? 0)
                 .ThenByDescending(path => string.Equals(path, settings.JavaPath, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+                .FirstOrDefault();
 
-            return discovered.FirstOrDefault();
+            return discovered;
         }
 
         private static bool IsLikely32BitJava(string? javawPath)
@@ -969,13 +1002,20 @@ namespace RaytolfasLauncher
 
         private long GetTotalPhysicalMemoryMb()
         {
-            return (long)(new Microsoft.VisualBasic.Devices.ComputerInfo().TotalPhysicalMemory / 1024 / 1024);
+            try
+            {
+                return GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024;
+            }
+            catch
+            {
+                return 8192;
+            }
         }
 
         private int NormalizeConfiguredRamMb(int requestedRamMb)
         {
-            int minimumRamMb = (int)Math.Round(RamSlider.Minimum > 0 ? RamSlider.Minimum : 1024);
-            int maximumRamMb = (int)Math.Round(RamSlider.Maximum > 0 ? RamSlider.Maximum : 16384);
+            int minimumRamMb = 1024;
+            int maximumRamMb = 16384;
             int normalizedRamMb = requestedRamMb <= 0 ? Math.Min(2048, maximumRamMb) : requestedRamMb;
             normalizedRamMb = Math.Clamp(normalizedRamMb, minimumRamMb, maximumRamMb);
 
@@ -1019,7 +1059,7 @@ namespace RaytolfasLauncher
             JavaPathBox.Text = profile.JavaPath ?? "";
         }
 
-        private void JavaProfileBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void JavaProfileBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (JavaProfileBox.SelectedItem is ComboBoxItem item && item.Tag is JavaProfile profile)
             {
@@ -1031,7 +1071,7 @@ namespace RaytolfasLauncher
         {
             try
             {
-                if (!Directory.Exists(settingsFolder)) 
+                if (!Directory.Exists(settingsFolder))
                     Directory.CreateDirectory(settingsFolder);
 
                 string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -1039,17 +1079,17 @@ namespace RaytolfasLauncher
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show(T("settings.file_save_error", ex.Message));
+                RayMessageBox.Show(T("settings.file_save_error", ex.Message), T("settings.title"), this);
             }
         }
 
-        private void SaveSettings_Click(object sender, RoutedEventArgs e)
+        private async void SaveSettings_Click(object? sender, RoutedEventArgs e)
         {
-            try 
+            try
             {
                 if (string.IsNullOrWhiteSpace(PathBox.Text))
                 {
-                    PathBox.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+                    PathBox.Text = PlatformHelper.GetDefaultMinecraftFolder();
                 }
 
                 if (JavaProfileBox.SelectedItem is ComboBoxItem profileItem && profileItem.Tag is JavaProfile profile)
@@ -1061,7 +1101,7 @@ namespace RaytolfasLauncher
                     }
                     else if (profile.Id == JavaProfileCustomId)
                     {
-                        settings.JavaPath = JavaPathBox.Text.Trim();
+                        settings.JavaPath = (JavaPathBox.Text ?? "").Trim();
                         profile.JavaPath = settings.JavaPath;
                     }
                     else
@@ -1071,15 +1111,15 @@ namespace RaytolfasLauncher
                 }
                 else
                 {
-                    settings.JavaPath = JavaPathBox.Text.Trim();
+                    settings.JavaPath = (JavaPathBox.Text ?? "").Trim();
                 }
 
-                settings.WindowWidth = int.Parse(WinWidthBox.Text);
-                settings.WindowHeight = int.Parse(WinHeightBox.Text);
+                settings.WindowWidth = int.TryParse(WinWidthBox.Text, out int ww) ? ww : 854;
+                settings.WindowHeight = int.TryParse(WinHeightBox.Text, out int wh) ? wh : 480;
                 settings.IsFullScreen = CbFullScreen.IsChecked ?? false;
-                settings.JvmArgs = JavaArgsBox.Text;
+                settings.JvmArgs = JavaArgsBox.Text ?? "-XX:+UseG1GC";
                 settings.SelectedRam = NormalizeConfiguredRamMb((int)RamSlider.Value);
-                settings.MinecraftPath = PathBox.Text;
+                settings.MinecraftPath = PathBox.Text ?? "";
                 settings.ShowReleases = CbReleases.IsChecked ?? true;
                 settings.ShowSnapshots = CbSnapshots.IsChecked ?? false;
                 settings.ShowModded = CbModded.IsChecked ?? true;
@@ -1090,7 +1130,7 @@ namespace RaytolfasLauncher
                 settings.EnableElyBySkins = CbElyBySkins.IsChecked ?? false;
                 settings.Language = GetSelectedComboTag(LanguageBox, currentLanguage);
                 currentLanguage = LocalizationManager.NormalizeLanguage(settings.Language);
-                settings.CustomBackgroundPath = BgPathBox.Text;
+                settings.CustomBackgroundPath = BgPathBox.Text ?? "";
 
                 SaveSettings();
 
@@ -1098,52 +1138,31 @@ namespace RaytolfasLauncher
                 launcher = new MinecraftLauncher(mcPath);
 
                 RamSlider.Value = settings.SelectedRam;
+                RamValueText.Text = $"{settings.SelectedRam} MB";
+
                 long totalMemory = GetTotalPhysicalMemoryMb();
-                
-                if ((long)RamSlider.Value > totalMemory) {
-                    System.Windows.MessageBox.Show(T("settings.ram_warning"));
-                }
-                
-                LoadVersions();
-                SettingsModal.Visibility = Visibility.Collapsed;
-                
-                if (string.IsNullOrEmpty(settings.CustomBackgroundPath))
+                if ((long)RamSlider.Value > totalMemory)
                 {
-                    MainBgImage.Source = new BitmapImage(new Uri("pack://application:,,,/Assets/background.png"));
-                }
-                else 
-                {
-                    try {
-                        MainBgImage.Source = new BitmapImage(new Uri(settings.CustomBackgroundPath));
-                    } catch {}
+                    await RayMessageBox.ShowAsync(this, T("settings.ram_warning"), T("settings.title"));
                 }
 
+                LoadVersions();
+                SettingsModal.IsVisible = false;
+
+                SetCustomBackground(settings.CustomBackgroundPath);
                 ApplyLocalization();
-                System.Windows.MessageBox.Show(T("settings.saved.message"), T("settings.saved.title"), MessageBoxButton.OK, MessageBoxImage.Information);
+                await RayMessageBox.ShowAsync(this, T("settings.saved.message"), T("settings.saved.title"));
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show(T("settings.save_error", ex.Message));
+                await RayMessageBox.ShowAsync(this, T("settings.save_error", ex.Message), T("settings.title"));
             }
         }
 
-        private void CbOpenLogWindow_Checked(object sender, RoutedEventArgs e)
+        private void CbOpenLogWindow_Checked(object? sender, RoutedEventArgs e)
         {
             if (suppressOptionEvents)
                 return;
-
-            var result = WpfMessageBox.Show(
-                T("settings.open_logs_confirm_message"),
-                T("settings.open_logs_confirm_title"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-
-            if (result == MessageBoxResult.Yes)
-                return;
-
-            suppressOptionEvents = true;
-            CbOpenLogWindow.IsChecked = false;
-            suppressOptionEvents = false;
         }
 
         private string FormatInstallerEvent(InstallerEventType eventType)
@@ -1162,7 +1181,6 @@ namespace RaytolfasLauncher
             {
                 UserType = "msa"
             };
-
             return session;
         }
 
@@ -1172,10 +1190,8 @@ namespace RaytolfasLauncher
             {
                 UserType = "Mojang"
             };
-
             if (!string.IsNullOrWhiteSpace(clientToken))
                 session.ClientToken = clientToken;
-
             return session;
         }
 
@@ -1194,7 +1210,7 @@ namespace RaytolfasLauncher
 
         private async Task<(bool Success, MSession? Session, bool IsOfflineSession, bool RequiresElyByInjector)> TryCreateSessionAsync(LogWindow? logWindow)
         {
-            if (AccountSelector.SelectedItem is ComboBoxItem item && item.Tag is AccountData acc && AccountSelector.Text == item.Content.ToString())
+            if (AccountSelector.SelectedItem is ComboBoxItem item && item.Tag is AccountData acc)
             {
                 if (acc.Type == "Microsoft")
                 {
@@ -1216,7 +1232,7 @@ namespace RaytolfasLauncher
                         return (true, CreateOfflineSession(acc.Username, acc.UUID), true, false);
                     }
 
-                    WpfMessageBox.Show(T("launch.message.session_expired"));
+                    await RayMessageBox.ShowAsync(this, T("launch.message.session_expired"), T("launch.message.error_title"));
                     return (false, null, false, false);
                 }
 
@@ -1235,10 +1251,10 @@ namespace RaytolfasLauncher
                 return (true, await CreateOfflineSessionAsync(acc.Username, logWindow), true, settings.EnableElyBySkins);
             }
 
-            string manualNick = NormalizeNickname(AccountSelector.Text);
+            string manualNick = NormalizeNickname((AccountSelector.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "");
             if (string.IsNullOrEmpty(manualNick))
             {
-                WpfMessageBox.Show(T("launch.message.enter_nick"));
+                await RayMessageBox.ShowAsync(this, T("launch.message.enter_nick"), T("launch.message.error_title"));
                 return (false, null, false, false);
             }
 
@@ -1429,10 +1445,10 @@ namespace RaytolfasLauncher
         private async void LoadVersions()
         {
             if (launcher == null) return;
-            
+
             LaunchBtn.IsEnabled = false;
             VersionBox.Items.Clear();
-            
+
             string versionsDirPath = Path.Combine(settings.MinecraftPath, "versions");
             var localVersions = new List<string>();
 
@@ -1481,9 +1497,9 @@ namespace RaytolfasLauncher
             {
                 if (!string.IsNullOrEmpty(settings.LastVersion))
                 {
-                    foreach (ComboBoxItem item in VersionBox.Items)
+                    foreach (var rawItem in VersionBox.Items)
                     {
-                        if (item.Tag?.ToString() == settings.LastVersion)
+                        if (rawItem is ComboBoxItem item && string.Equals(item.Tag?.ToString(), settings.LastVersion, StringComparison.OrdinalIgnoreCase))
                         {
                             VersionBox.SelectedItem = item;
                             break;
@@ -1498,35 +1514,35 @@ namespace RaytolfasLauncher
             }
         }
 
-        private void VersionBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void VersionBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
-            if (VersionBox.SelectedItem is ComboBoxItem item)
+            if (VersionBox.SelectedItem is ComboBoxItem item && item.Tag is string tag)
             {
-                settings.LastVersion = item.Tag.ToString();
+                settings.LastVersion = tag;
                 SaveSettings();
             }
         }
 
         private void AddVersionToBox(string name, string? type, string dir)
         {
-            if (VersionBox.Items.Cast<ComboBoxItem>().Any(i => i.Content.ToString() == name)) return;
+            if (VersionBox.Items.Cast<ComboBoxItem>().Any(i => i.Content?.ToString() == name)) return;
 
-            var item = new ComboBoxItem 
-            { 
-                Content = name, 
-                Tag = name 
+            var item = new ComboBoxItem
+            {
+                Content = name,
+                Tag = name
             };
 
             string currentVersionPath = Path.Combine(dir, name);
 
             if (Directory.Exists(currentVersionPath))
             {
-                item.Foreground = new SolidColorBrush((MediaColor)MediaColorConverter.ConvertFromString("#BB86FC"));
-                item.FontWeight = FontWeights.Bold;
+                item.Foreground = Brush.Parse("#BB86FC");
+                item.FontWeight = FontWeight.Bold;
             }
             else
             {
-                item.Foreground = System.Windows.Media.Brushes.Gray;
+                item.Foreground = Brushes.Gray;
             }
 
             VersionBox.Items.Add(item);
@@ -1535,49 +1551,87 @@ namespace RaytolfasLauncher
         #region Discord RPC
         private void InitDiscordRPC()
         {
-            try {
+            try
+            {
                 if (!settings.ShowDiscordStatus) return;
 
                 discordClient = discordClientID;
                 discordClient.Initialize();
                 SetDiscordStatus(T("discord.state.launcher"), T("discord.details.choosing_version"));
-            } catch { }
+            }
+            catch { }
         }
 
         public void SetDiscordStatus(string state, string? details = null)
         {
             if (settings?.ShowDiscordStatus == false || discordClient == null) return;
 
-            string imageKey = "logo"; 
-            
+            string imageKey = "logo";
             string finalState = state;
 
-            try 
+            try
             {
                 discordClient.SetPresence(new RichPresence()
                 {
                     Details = details,
                     State = finalState,
-                    Assets = new Assets() 
-                    { 
-                        LargeImageKey = imageKey, 
+                    Assets = new DiscordRPC.Assets()
+                    {
+                        LargeImageKey = imageKey,
                         LargeImageText = T("discord.image_text"),
-                        SmallImageKey = "icon_play" 
+                        SmallImageKey = "icon_play"
                     },
                     Timestamps = Timestamps.Now
                 });
             }
             catch
             {
-                
             }
         }
         #endregion
 
         #region System Tray
+        private void InitTrayIcon()
+        {
+            try
+            {
+                var menu = new NativeMenu();
+                var openItem = new NativeMenuItem(T("tray.open"));
+                openItem.Click += (s, e) => Dispatcher.UIThread.Post(ToggleWindow);
+                var exitItem = new NativeMenuItem(T("tray.exit"));
+                exitItem.Click += (s, e) => Dispatcher.UIThread.Post(ShutdownApp);
+
+                menu.Add(openItem);
+                menu.Add(new NativeMenuItemSeparator());
+                menu.Add(exitItem);
+
+                trayIcon = new TrayIcon
+                {
+                    ToolTipText = "Raytolfas Launcher",
+                    Menu = menu,
+                    IsVisible = true
+                };
+
+                var iconUri = new Uri("avares://RaytolfasLauncher/Assets/logo.ico");
+                if (AssetLoader.Exists(iconUri))
+                {
+                    trayIcon.Icon = new WindowIcon(AssetLoader.Open(iconUri));
+                }
+
+                trayIcon.Clicked += (s, e) => Dispatcher.UIThread.Post(ToggleWindow);
+
+                var icons = TrayIcon.GetIcons(Application.Current!) ?? new TrayIcons();
+                icons.Add(trayIcon);
+                TrayIcon.SetIcons(Application.Current!, icons);
+            }
+            catch
+            {
+            }
+        }
+
         private void ToggleWindow()
         {
-            if (isShuttingDown || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
+            if (isShuttingDown)
                 return;
 
             if (this.IsVisible && this.WindowState != WindowState.Minimized)
@@ -1600,51 +1654,53 @@ namespace RaytolfasLauncher
             isShuttingDown = true;
             discordClient?.Dispose();
             DisposeTrayIcon();
-            System.Windows.Application.Current.Shutdown();
-        }
 
-        private void ToggleWindow_Click(object sender, RoutedEventArgs e)
-        {
-            ToggleWindow();
-        }
-
-        private void ShutdownApp_Click(object sender, RoutedEventArgs e)
-        {
-            ShutdownApp();
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+            else
+            {
+                Environment.Exit(0);
+            }
         }
         #endregion
 
-        private void OpenAccountManager_Click(object sender, RoutedEventArgs e)
+        private async void OpenAccountManager_Click(object? sender, RoutedEventArgs e)
         {
             var accWin = new AccountWindow(settings);
-            accWin.Owner = this;
-            if (accWin.ShowDialog() == true) { UpdateAccountList(); SaveSettings(); }
+            bool? res = await accWin.ShowDialog<bool?>(this);
+            if (res == true)
+            {
+                UpdateAccountList();
+                SaveSettings();
+            }
         }
 
-        private async void LoadServers_Click(object sender, RoutedEventArgs e)
+        private async void LoadServers_Click(object? sender, RoutedEventArgs e)
         {
-            ServerModal.Visibility = Visibility.Visible;
-            SetModCenterStatus(T("modcenter.status.ready"));
+            ServerModal.IsVisible = true;
+            SetModCenterStatus("");
 
             if (LoaderGameVersionBox.Items.Count <= 1)
                 await RefreshLoaderDataAsync();
         }
 
-        private void ShowLoadersTab_Click(object sender, RoutedEventArgs e) => SetModCenterTab(showLoaders: true);
-        private void ShowModrinthTab_Click(object sender, RoutedEventArgs e) => SetModCenterTab(showLoaders: false);
-
-        private void SetModCenterTab(bool showLoaders)
+        private async void OpenModpacksWindow_Click(object? sender, RoutedEventArgs e)
         {
-            if (LoadersTabButton == null || ModrinthTabButton == null)
-                return;
-
-            LoadersTabButton.Background = showLoaders ? new SolidColorBrush((MediaColor)MediaColorConverter.ConvertFromString("#BB86FC")) : new SolidColorBrush((MediaColor)MediaColorConverter.ConvertFromString("#2D2D2D"));
-            LoadersTabButton.Foreground = showLoaders ? MediaBrushes.Black : MediaBrushes.White;
-            ModrinthTabButton.Background = showLoaders ? new SolidColorBrush((MediaColor)MediaColorConverter.ConvertFromString("#2D2D2D")) : new SolidColorBrush((MediaColor)MediaColorConverter.ConvertFromString("#BB86FC"));
-            ModrinthTabButton.Foreground = showLoaders ? MediaBrushes.White : MediaBrushes.Black;
-
-            LoadersTabPanel.Visibility = showLoaders ? Visibility.Visible : Visibility.Collapsed;
-            ModrinthTabPanel.Visibility = showLoaders ? Visibility.Collapsed : Visibility.Visible;
+            var win = new ModpacksWindow(settings.MinecraftPath, currentLanguage, launcher);
+            var res = await win.ShowDialog<bool?>(this);
+            if (res == true && win.SelectedModpack != null)
+            {
+                settings.LastVersion = win.SelectedModpack.Id;
+                SaveSettings();
+                LoadVersions();
+                ServerModal.IsVisible = false;
+            }
+            else
+            {
+                LoadVersions();
+            }
         }
 
         private void SetModCenterStatus(string text)
@@ -1654,7 +1710,7 @@ namespace RaytolfasLauncher
 
         private void SetModCenterBusy(bool isBusy, string status)
         {
-            ModCenterProgress.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+            ModCenterProgress.IsVisible = isBusy;
             ModCenterProgress.IsIndeterminate = isBusy;
             SetModCenterStatus(status);
         }
@@ -1673,12 +1729,12 @@ namespace RaytolfasLauncher
             }
             catch (Exception ex)
             {
-                WpfMessageBox.Show(T("modcenter.message.loader_error", ex.Message));
+                await RayMessageBox.ShowAsync(this, T("modcenter.message.loader_error", ex.Message), T("modcenter.title"));
                 SetModCenterStatus(T("modcenter.status.loader_failed"));
             }
             finally
             {
-                SetModCenterBusy(false, ModCenterStatusText.Text);
+                SetModCenterBusy(false, ModCenterStatusText.Text ?? "");
             }
         }
 
@@ -1791,11 +1847,11 @@ namespace RaytolfasLauncher
             }
             finally
             {
-                SetModCenterBusy(false, ModCenterStatusText.Text);
+                SetModCenterBusy(false, ModCenterStatusText.Text ?? "");
             }
         }
 
-        private async void RefreshLoaderVersions_Click(object sender, RoutedEventArgs e)
+        private async void RefreshLoaderVersions_Click(object? sender, RoutedEventArgs e)
         {
             try
             {
@@ -1803,11 +1859,11 @@ namespace RaytolfasLauncher
             }
             catch (Exception ex)
             {
-                WpfMessageBox.Show(T("modcenter.message.refresh_error", ex.Message));
+                await RayMessageBox.ShowAsync(this, T("modcenter.message.refresh_error", ex.Message), T("modcenter.title"));
             }
         }
 
-        private async void LoaderTypeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void LoaderTypeBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (!IsLoaded)
                 return;
@@ -1815,7 +1871,7 @@ namespace RaytolfasLauncher
             await RefreshLoaderDataAsync();
         }
 
-        private async void LoaderGameVersionBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void LoaderGameVersionBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (!IsLoaded)
                 return;
@@ -1823,11 +1879,11 @@ namespace RaytolfasLauncher
             await LoadSelectedLoaderVersionsAsync();
         }
 
-        private async void InstallSelectedLoader_Click(object sender, RoutedEventArgs e)
+        private async void InstallSelectedLoader_Click(object? sender, RoutedEventArgs e)
         {
             if (LoaderVersionBox.SelectedItem is not ComboBoxItem item || item.Tag is not LoaderInstallOption option || launcher == null)
             {
-                WpfMessageBox.Show(T("modcenter.message.select_loader"));
+                await RayMessageBox.ShowAsync(this, T("modcenter.message.select_loader"), T("modcenter.title"));
                 return;
             }
 
@@ -1852,28 +1908,33 @@ namespace RaytolfasLauncher
                 SaveSettings();
                 LoadVersions();
                 SetModCenterStatus(T("modcenter.status.loader_installed", option.LoaderType, installedVersion));
-                WpfMessageBox.Show(T("modcenter.message.loader_installed", installedVersion), T("settings.saved.title"));
+                await RayMessageBox.ShowAsync(this, T("modcenter.message.loader_installed", installedVersion), T("settings.saved.title"));
             }
             catch (Exception ex)
             {
                 SetModCenterStatus(T("modcenter.status.loader_install_failed"));
-                WpfMessageBox.Show(T("modcenter.message.loader_install_failed", ex.Message));
+                await RayMessageBox.ShowAsync(this, T("modcenter.message.loader_install_failed", ex.Message), T("modcenter.title"));
             }
             finally
             {
-                SetModCenterBusy(false, ModCenterStatusText.Text);
+                SetModCenterBusy(false, ModCenterStatusText.Text ?? "");
             }
         }
 
-        private async void ImportMrPack_Click(object sender, RoutedEventArgs e)
+        private async void ImportMrPack_Click(object? sender, RoutedEventArgs e)
         {
-            var dialog = new Microsoft.Win32.OpenFileDialog
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Filter = "Modrinth Pack (*.mrpack)|*.mrpack"
-            };
+                Title = "Выберите .mrpack файл",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("Modrinth Pack") { Patterns = new[] { "*.mrpack" } }
+                }
+            });
 
-            if (dialog.ShowDialog() == true)
-                await InstallMrPackAsync(dialog.FileName);
+            if (files.Count > 0)
+                await InstallMrPackAsync(files[0].Path.LocalPath);
         }
 
         private async Task InstallMrPackAsync(string filePath, string? displayNameOverride = null)
@@ -1899,18 +1960,19 @@ namespace RaytolfasLauncher
 
                 string packName = string.IsNullOrWhiteSpace(displayNameOverride) ? packIndex.Name : displayNameOverride;
                 SetModCenterStatus(T("modcenter.status.pack_installed", packName, installedVersion));
-                WpfMessageBox.Show(
+                await RayMessageBox.ShowAsync(
+                    this,
                     T("modcenter.message.pack_installed_body", installedVersion, settings.MinecraftPath),
                     T("modcenter.message.pack_installed_title"));
             }
             catch (Exception ex)
             {
                 SetModCenterStatus(ex.Message);
-                WpfMessageBox.Show(ex.Message, T("launch.message.error_title"));
+                await RayMessageBox.ShowAsync(this, ex.Message, T("launch.message.error_title"));
             }
             finally
             {
-                SetModCenterBusy(false, ModCenterStatusText.Text);
+                SetModCenterBusy(false, ModCenterStatusText.Text ?? "");
             }
         }
 
@@ -2057,7 +2119,7 @@ namespace RaytolfasLauncher
             return null;
         }
 
-        private static string GetSelectedComboTag(System.Windows.Controls.ComboBox comboBox, string fallback)
+        private static string GetSelectedComboTag(ComboBox comboBox, string fallback)
         {
             if (comboBox.SelectedItem is ComboBoxItem item && item.Tag is string tag)
                 return tag;
@@ -2065,53 +2127,51 @@ namespace RaytolfasLauncher
             return fallback;
         }
 
-        private void OpenDonateWeb_Click(object sender, RoutedEventArgs e)
+        private void OpenDonateWeb_Click(object? sender, RoutedEventArgs e)
         {
-            string url = "https://ko-fi.com/mixitosik";
-            try
+            PlatformHelper.OpenBrowser("https://ko-fi.com/mixitosik");
+        }
+
+        private async void SelectBackground_Click(object? sender, RoutedEventArgs e)
+        {
+            var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-            }
-            catch (Exception ex)
+                Title = T("settings.background"),
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("Images")
+                    {
+                        Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp" }
+                    }
+                }
+            });
+
+            if (files.Count > 0)
             {
-                WpfMessageBox.Show(T("common.open_link_error", ex.Message));
+                string localPath = files[0].Path.LocalPath;
+                BgPathBox.Text = localPath;
+                SetCustomBackground(localPath);
             }
         }
 
-        private void SelectBackground_Click(object sender, RoutedEventArgs e)
+        private void FolderButton_Click(object? sender, RoutedEventArgs e)
         {
-            var dialog = new Microsoft.Win32.OpenFileDialog();
-            dialog.Filter = "Изображения|*.jpg;*.png;*.jpeg;*.bmp";
-            if (dialog.ShowDialog() == true)
+            if (sender is Avalonia.Controls.Button btn)
             {
-                BgPathBox.Text = dialog.FileName;
-                MainBgImage.Source = new BitmapImage(new Uri(dialog.FileName));
+                btn.Flyout?.ShowAt(btn);
             }
         }
 
-        private void OpenFolderMenu_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is not System.Windows.Controls.Button button || button.ContextMenu is not ContextMenu menu)
-                return;
-
-            menu.PlacementTarget = button;
-            menu.Placement = PlacementMode.Bottom;
-            menu.HorizontalOffset = 0;
-            menu.VerticalOffset = 6;
-            menu.DataContext = button.DataContext;
-            menu.IsOpen = true;
-            e.Handled = true;
-        }
-
-        private void OpenRootFolder_Click(object sender, RoutedEventArgs e) => OpenDir("");
-        private void OpenModsFolder_Click(object sender, RoutedEventArgs e) => OpenDir("mods");
-        private void OpenSavesFolder_Click(object sender, RoutedEventArgs e) => OpenDir("saves");
-        private void OpenScreenshotsFolder_Click(object sender, RoutedEventArgs e) => OpenDir("screenshots");
+        private void OpenRootFolder_Click(object? sender, RoutedEventArgs e) => OpenDir("");
+        private void OpenModsFolder_Click(object? sender, RoutedEventArgs e) => OpenDir("mods");
+        private void OpenSavesFolder_Click(object? sender, RoutedEventArgs e) => OpenDir("saves");
+        private void OpenScreenshotsFolder_Click(object? sender, RoutedEventArgs e) => OpenDir("screenshots");
 
         private void OpenDir(string subDir)
         {
             string minecraftPath = string.IsNullOrWhiteSpace(settings.MinecraftPath)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft")
+                ? PlatformHelper.GetDefaultMinecraftFolder()
                 : settings.MinecraftPath;
 
             string fullPath = string.IsNullOrWhiteSpace(subDir)
@@ -2120,33 +2180,16 @@ namespace RaytolfasLauncher
 
             if (Directory.Exists(fullPath))
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "explorer.exe",
-                    Arguments = fullPath,
-                    UseShellExecute = true
-                });
+                PlatformHelper.OpenFolder(fullPath);
             }
             else
             {
                 string folderName = string.IsNullOrWhiteSpace(subDir) ? T("folders.root") : T("folders.named", subDir);
-                System.Windows.MessageBox.Show(T("folders.not_created", folderName));
+                RayMessageBox.Show(T("folders.not_created", folderName), T("window.title"), this);
             }
         }
 
-        private void TrayIcon_TrayLeftMouseUp(object sender, RoutedEventArgs e)
-        {
-            if (isShuttingDown || Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
-            {
-                e.Handled = true;
-                return;
-            }
-
-            Dispatcher.BeginInvoke(new Action(ToggleWindow));
-            e.Handled = true;
-        }
-
-        private void MainWindow_Closing(object? sender, CancelEventArgs e)
+        private void MainWindow_Closing(object? sender, WindowClosingEventArgs e)
         {
             isShuttingDown = true;
             discordClient?.Dispose();
@@ -2155,31 +2198,49 @@ namespace RaytolfasLauncher
 
         private void DisposeTrayIcon()
         {
-            if (MyNotifyIcon == null)
+            if (trayIcon == null)
                 return;
 
             try
             {
-                if (MyNotifyIcon.ContextMenu != null)
-                    MyNotifyIcon.ContextMenu.IsOpen = false;
-
-                MyNotifyIcon.Visibility = Visibility.Collapsed;
-                MyNotifyIcon.Dispose();
+                trayIcon.IsVisible = false;
+                var icons = TrayIcon.GetIcons(Application.Current!);
+                icons?.Remove(trayIcon);
             }
             catch
             {
             }
         }
 
-        private void Window_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) { if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed) DragMove(); }
-        private void CloseBtn_Click(object sender, RoutedEventArgs e) => ShutdownApp();
-        private void SettingsBtn_Click(object sender, RoutedEventArgs e) => SettingsModal.Visibility = Visibility.Visible;
-        private void Refresh_Click(object sender, RoutedEventArgs e) => LoadVersions();
-        private void CloseServerModal_Click(object sender, RoutedEventArgs e) => ServerModal.Visibility = Visibility.Collapsed;
-        private void CloseSettings_Click(object sender, RoutedEventArgs e)
+        private void Window_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            SettingsModal.Visibility = Visibility.Collapsed;
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                return;
+
+            if (e.Source is Visual source && PlatformHelper.IsInteractiveElement(source))
+                return;
+
+            BeginMoveDrag(e);
         }
-        private void SelectPath_Click(object sender, RoutedEventArgs e) { var dialog = new Microsoft.Win32.OpenFolderDialog(); if (dialog.ShowDialog() == true) PathBox.Text = dialog.FolderName; }
+
+        private void CloseBtn_Click(object? sender, RoutedEventArgs e) => ShutdownApp();
+        private void SettingsBtn_Click(object? sender, RoutedEventArgs e) => SettingsModal.IsVisible = true;
+        private void Refresh_Click(object? sender, RoutedEventArgs e) => LoadVersions();
+        private void CloseServerModal_Click(object? sender, RoutedEventArgs e) => ServerModal.IsVisible = false;
+        private void CloseSettings_Click(object? sender, RoutedEventArgs e) => SettingsModal.IsVisible = false;
+
+        private async void SelectPath_Click(object? sender, RoutedEventArgs e)
+        {
+            var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = T("settings.game_folder"),
+                AllowMultiple = false
+            });
+
+            if (folders.Count > 0)
+            {
+                PathBox.Text = folders[0].Path.LocalPath;
+            }
+        }
     }
 }

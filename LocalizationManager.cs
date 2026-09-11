@@ -5,7 +5,7 @@ namespace RaytolfasLauncher
 {
     public static class LocalizationManager
     {
-        public const string DefaultLanguage = "ru";
+        public const string DefaultLanguage = "en";
 
         private static readonly Dictionary<string, Dictionary<string, string>> Texts = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -54,7 +54,7 @@ namespace RaytolfasLauncher
                 ["modcenter.title"] = "Менеджер версий",
                 ["modcenter.subtitle"] = "Установка Fabric, Forge и Modrinth pack прямо из лаунчера",
                 ["modcenter.tab.loaders"] = "FABRIC / FORGE",
-                ["modcenter.tab.pack"] = "СБОРКА .MRPACK",
+                ["modcenter.tab.pack"] = "СБОРКИ",
                 ["modcenter.loader"] = "LOADER",
                 ["modcenter.minecraft"] = "MINECRAFT",
                 ["modcenter.loader_build"] = "СБОРКА LOADER",
@@ -64,8 +64,8 @@ namespace RaytolfasLauncher
                 ["modcenter.loaders.info_line1"] = "Ставит выбранную версию Fabric или Forge в текущую папку игры.",
                 ["modcenter.loaders.info_line2"] = "После установки версия сразу появится в основном списке версий.",
                 ["modcenter.pack.title"] = "СКОРО...",
-                ["modcenter.pack.subtitle"] = "Раздел установки .mrpack появится позже.",
-                ["modcenter.status.ready"] = "Открой установщик модов и выбери нужный loader. Раздел .mrpack появится позже.",
+                ["modcenter.pack.subtitle"] = "Раздел сборок",
+                ["modcenter.status.ready"] = "",
                 ["modcenter.status.loading_loaders"] = "Загружаем доступные Fabric и Forge версии...",
                 ["modcenter.status.loading_mod_loader"] = "Загружаем {0} версии для Minecraft {1}...",
                 ["modcenter.status.fabric_ready"] = "Fabric версии готовы к установке.",
@@ -185,7 +185,66 @@ namespace RaytolfasLauncher
                 ["folders.menu.root"] = "Коренная папка",
                 ["folders.menu.mods"] = "Моды (mods)",
                 ["folders.menu.saves"] = "Миры (saves)",
-                ["folders.menu.screenshots"] = "Скриншоты"
+                ["folders.menu.screenshots"] = "Скриншоты",
+                ["modpacks.window_title"] = "Управление сборками",
+                ["modpacks.header_title"] = "СБОРКИ И МОДЫ",
+                ["modpacks.header_subtitle"] = "Создание своих сборок и загрузка модов, ресурс-паков и шейдеров с Modrinth",
+                ["modpacks.your_packs"] = "ВАШИ СБОРКИ",
+                ["modpacks.btn_create"] = "+ СОЗДАТЬ СБОРКУ",
+                ["modpacks.btn_import"] = "📥 .MRPACK",
+                ["modpacks.btn_delete"] = "🗑️ УДАЛИТЬ",
+                ["modpacks.no_sel_title"] = "Выберите сборку слева или создайте новую",
+                ["modpacks.no_sel_desc"] = "Каждая сборка имеет свою папку версий и каталоги mods, resourcepacks, shaderpacks",
+                ["modpacks.no_sel_create"] = "+ Создать свою первую сборку",
+                ["modpacks.select_for_play"] = "▶ ВЫБРАТЬ ДЛЯ ИГРЫ",
+                ["modpacks.folder_pack"] = "📁 Папка сборки",
+                ["modpacks.tab_installed"] = "УСТАНОВЛЕННЫЕ ФАЙЛЫ",
+                ["modpacks.tab_modrinth"] = "КАТАЛОГ MODRINTH",
+                ["modpacks.filter_all"] = "Все",
+                ["modpacks.filter_mods"] = "Моды",
+                ["modpacks.filter_resourcepacks"] = "Ресурс-паки",
+                ["modpacks.filter_shaderpacks"] = "Шейдеры",
+                ["modpacks.search_watermark"] = "Поиск модов на Modrinth...",
+                ["modpacks.type_mods"] = "Моды",
+                ["modpacks.type_resourcepacks"] = "Ресурс-паки",
+                ["modpacks.type_shaders"] = "Шейдеры",
+                ["modpacks.btn_search"] = "🔍 Найти",
+                ["modpacks.btn_install"] = "УСТАНОВИТЬ",
+                ["modpacks.btn_installed"] = "✓ ОК",
+                ["modpacks.modal_title"] = "СОЗДАНИЕ СБОРКИ",
+                ["modpacks.name_label"] = "НАЗВАНИЕ СБОРКИ",
+                ["modpacks.name_watermark"] = "Например: Моя сборка",
+                ["modpacks.version_label"] = "ВЕРСИЯ MINECRAFT",
+                ["modpacks.loader_label"] = "ЗАГРУЗЧИК (LOADER)",
+                ["modpacks.btn_cancel"] = "ОТМЕНА",
+                ["modpacks.btn_confirm_create"] = "СОЗДАТЬ",
+                ["modpacks.delete_file_confirm"] = "Удалить файл {0}?",
+                ["modpacks.delete_file_title"] = "Удаление файла",
+                ["modpacks.file_deleted"] = "Файл {0} удалён.",
+                ["modpacks.searching"] = "Поиск на Modrinth...",
+                ["modpacks.found_results"] = "Найдено: {0} результатов",
+                ["modpacks.search_error"] = "Ошибка поиска: {0}",
+                ["modpacks.downloading"] = "Загрузка {0}...",
+                ["modpacks.installed_file"] = "✓ Установлено: {0}",
+                ["modpacks.install_error"] = "Ошибка установки: {0}",
+                ["modpacks.download_error_title"] = "Ошибка загрузки",
+                ["modpacks.default_name"] = "Сборка {0}",
+                ["modpacks.enter_name"] = "Введите название сборки",
+                ["modpacks.error_title"] = "Ошибка",
+                ["modpacks.creating"] = "Создание сборки...",
+                ["modpacks.created"] = "Сборка \"{0}\" успешно создана!",
+                ["modpacks.create_error_title"] = "Ошибка создания",
+                ["modpacks.delete_confirm"] = "Вы действительно хотите удалить сборку \"{0}\" и все её моды?",
+                ["modpacks.delete_title"] = "Удаление сборки",
+                ["modpacks.deleted"] = "Сборка удалена.",
+                ["modpacks.import_title"] = "Выберите файл сборки Modrinth (.mrpack)",
+                ["modpacks.importing"] = "Импорт .mrpack...",
+                ["modpacks.import_no_index"] = "Файл .mrpack не содержит modrinth.index.json",
+                ["modpacks.imported"] = "Сборка \"{0}\" успешно импортирована!",
+                ["modpacks.import_success_title"] = "Импорт завершён",
+                ["modpacks.import_success_msg"] = "Сборка \"{0}\" ({1} {2}) успешно создана.",
+                ["modpacks.import_error_title"] = "Ошибка импорта",
+                ["modpacks.mods_count"] = "{0} мод."
             },
             ["en"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -232,7 +291,7 @@ namespace RaytolfasLauncher
                 ["modcenter.title"] = "Version Manager",
                 ["modcenter.subtitle"] = "Install Fabric, Forge and Modrinth packs right from the launcher",
                 ["modcenter.tab.loaders"] = "FABRIC / FORGE",
-                ["modcenter.tab.pack"] = ".MRPACK PACK",
+                ["modcenter.tab.pack"] = "MODPACKS",
                 ["modcenter.loader"] = "LOADER",
                 ["modcenter.minecraft"] = "MINECRAFT",
                 ["modcenter.loader_build"] = "LOADER BUILD",
@@ -242,8 +301,8 @@ namespace RaytolfasLauncher
                 ["modcenter.loaders.info_line1"] = "Installs the selected Fabric or Forge version into the current game folder.",
                 ["modcenter.loaders.info_line2"] = "After installation the version will appear in the main versions list.",
                 ["modcenter.pack.title"] = "SOON...",
-                ["modcenter.pack.subtitle"] = ".mrpack installation will appear here later.",
-                ["modcenter.status.ready"] = "Open the mod installer and choose a loader. The .mrpack section will appear later.",
+                ["modcenter.pack.subtitle"] = "Modpacks section",
+                ["modcenter.status.ready"] = "",
                 ["modcenter.status.loading_loaders"] = "Loading available Fabric and Forge versions...",
                 ["modcenter.status.loading_mod_loader"] = "Loading {0} versions for Minecraft {1}...",
                 ["modcenter.status.fabric_ready"] = "Fabric versions are ready to install.",
@@ -363,7 +422,66 @@ namespace RaytolfasLauncher
                 ["folders.menu.root"] = "Root folder",
                 ["folders.menu.mods"] = "Mods (mods)",
                 ["folders.menu.saves"] = "Worlds (saves)",
-                ["folders.menu.screenshots"] = "Screenshots"
+                ["folders.menu.screenshots"] = "Screenshots",
+                ["modpacks.window_title"] = "Modpack Manager",
+                ["modpacks.header_title"] = "MODPACKS & MODS",
+                ["modpacks.header_subtitle"] = "Create custom modpacks and download mods, resource packs and shaders from Modrinth",
+                ["modpacks.your_packs"] = "YOUR MODPACKS",
+                ["modpacks.btn_create"] = "+ CREATE MODPACK",
+                ["modpacks.btn_import"] = "📥 .MRPACK",
+                ["modpacks.btn_delete"] = "🗑️ DELETE",
+                ["modpacks.no_sel_title"] = "Select a modpack on the left or create a new one",
+                ["modpacks.no_sel_desc"] = "Each modpack has its own version folder and mods, resourcepacks, shaderpacks directories",
+                ["modpacks.no_sel_create"] = "+ Create your first modpack",
+                ["modpacks.select_for_play"] = "▶ SELECT FOR PLAY",
+                ["modpacks.folder_pack"] = "📁 Pack folder",
+                ["modpacks.tab_installed"] = "INSTALLED FILES",
+                ["modpacks.tab_modrinth"] = "MODRINTH CATALOG",
+                ["modpacks.filter_all"] = "All",
+                ["modpacks.filter_mods"] = "Mods",
+                ["modpacks.filter_resourcepacks"] = "Resource packs",
+                ["modpacks.filter_shaderpacks"] = "Shaders",
+                ["modpacks.search_watermark"] = "Search mods on Modrinth...",
+                ["modpacks.type_mods"] = "Mods",
+                ["modpacks.type_resourcepacks"] = "Resource Packs",
+                ["modpacks.type_shaders"] = "Shaders",
+                ["modpacks.btn_search"] = "🔍 Search",
+                ["modpacks.btn_install"] = "INSTALL",
+                ["modpacks.btn_installed"] = "✓ OK",
+                ["modpacks.modal_title"] = "CREATE MODPACK",
+                ["modpacks.name_label"] = "MODPACK NAME",
+                ["modpacks.name_watermark"] = "e.g. My Modpack",
+                ["modpacks.version_label"] = "MINECRAFT VERSION",
+                ["modpacks.loader_label"] = "MOD LOADER",
+                ["modpacks.btn_cancel"] = "CANCEL",
+                ["modpacks.btn_confirm_create"] = "CREATE",
+                ["modpacks.delete_file_confirm"] = "Delete file {0}?",
+                ["modpacks.delete_file_title"] = "Delete File",
+                ["modpacks.file_deleted"] = "File {0} deleted.",
+                ["modpacks.searching"] = "Searching Modrinth...",
+                ["modpacks.found_results"] = "Found: {0} results",
+                ["modpacks.search_error"] = "Search error: {0}",
+                ["modpacks.downloading"] = "Downloading {0}...",
+                ["modpacks.installed_file"] = "✓ Installed: {0}",
+                ["modpacks.install_error"] = "Install error: {0}",
+                ["modpacks.download_error_title"] = "Download Error",
+                ["modpacks.default_name"] = "Modpack {0}",
+                ["modpacks.enter_name"] = "Please enter a modpack name",
+                ["modpacks.error_title"] = "Error",
+                ["modpacks.creating"] = "Creating modpack...",
+                ["modpacks.created"] = "Modpack \"{0}\" created successfully!",
+                ["modpacks.create_error_title"] = "Creation Error",
+                ["modpacks.delete_confirm"] = "Are you sure you want to delete modpack \"{0}\" and all its mods?",
+                ["modpacks.delete_title"] = "Delete Modpack",
+                ["modpacks.deleted"] = "Modpack deleted.",
+                ["modpacks.import_title"] = "Select Modrinth pack file (.mrpack)",
+                ["modpacks.importing"] = "Importing .mrpack...",
+                ["modpacks.import_no_index"] = "The .mrpack file does not contain modrinth.index.json",
+                ["modpacks.imported"] = "Modpack \"{0}\" successfully imported!",
+                ["modpacks.import_success_title"] = "Import Completed",
+                ["modpacks.import_success_msg"] = "Modpack \"{0}\" ({1} {2}) successfully created.",
+                ["modpacks.import_error_title"] = "Import Error",
+                ["modpacks.mods_count"] = "{0} mods"
             },
             ["uk"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -410,7 +528,7 @@ namespace RaytolfasLauncher
                 ["modcenter.title"] = "Менеджер версій",
                 ["modcenter.subtitle"] = "Встановлення Fabric, Forge і Modrinth pack прямо з лаунчера",
                 ["modcenter.tab.loaders"] = "FABRIC / FORGE",
-                ["modcenter.tab.pack"] = "ЗБІРКА .MRPACK",
+                ["modcenter.tab.pack"] = "ЗБІРКИ",
                 ["modcenter.loader"] = "LOADER",
                 ["modcenter.minecraft"] = "MINECRAFT",
                 ["modcenter.loader_build"] = "ЗБІРКА LOADER",
@@ -420,8 +538,8 @@ namespace RaytolfasLauncher
                 ["modcenter.loaders.info_line1"] = "Ставить вибрану версію Fabric або Forge у поточну папку гри.",
                 ["modcenter.loaders.info_line2"] = "Після встановлення версія одразу з'явиться в основному списку версій.",
                 ["modcenter.pack.title"] = "СКОРО...",
-                ["modcenter.pack.subtitle"] = "Розділ встановлення .mrpack з'явиться пізніше.",
-                ["modcenter.status.ready"] = "Відкрий установник модів і вибери потрібний loader. Розділ .mrpack з'явиться пізніше.",
+                ["modcenter.pack.subtitle"] = "Розділ збірок",
+                ["modcenter.status.ready"] = "",
                 ["modcenter.status.loading_loaders"] = "Завантажуємо доступні Fabric і Forge версії...",
                 ["modcenter.status.loading_mod_loader"] = "Завантажуємо {0} версії для Minecraft {1}...",
                 ["modcenter.status.fabric_ready"] = "Fabric версії готові до встановлення.",
@@ -541,7 +659,66 @@ namespace RaytolfasLauncher
                 ["folders.menu.root"] = "Коренева папка",
                 ["folders.menu.mods"] = "Моди (mods)",
                 ["folders.menu.saves"] = "Світи (saves)",
-                ["folders.menu.screenshots"] = "Скріншоти"
+                ["folders.menu.screenshots"] = "Скріншоти",
+                ["modpacks.window_title"] = "Керування збірками",
+                ["modpacks.header_title"] = "ЗБІРКИ ТА МОДИ",
+                ["modpacks.header_subtitle"] = "Створення власних збірок та завантаження модів, ресурс-паків і шейдерів з Modrinth",
+                ["modpacks.your_packs"] = "ВАШІ ЗБІРКИ",
+                ["modpacks.btn_create"] = "+ СТВОРИТИ ЗБІРКУ",
+                ["modpacks.btn_import"] = "📥 .MRPACK",
+                ["modpacks.btn_delete"] = "🗑️ ВИДАЛИТИ",
+                ["modpacks.no_sel_title"] = "Виберіть збірку ліворуч або створіть нову",
+                ["modpacks.no_sel_desc"] = "Кожна збірка має свою папку версій та каталоги mods, resourcepacks, shaderpacks",
+                ["modpacks.no_sel_create"] = "+ Створити свою першу збірку",
+                ["modpacks.select_for_play"] = "▶ ВИБРАТИ ДЛЯ ГРИ",
+                ["modpacks.folder_pack"] = "📁 Папка збірки",
+                ["modpacks.tab_installed"] = "ВСТАНОВЛЕНІ ФАЙЛИ",
+                ["modpacks.tab_modrinth"] = "КАТАЛОГ MODRINTH",
+                ["modpacks.filter_all"] = "Всі",
+                ["modpacks.filter_mods"] = "Моди",
+                ["modpacks.filter_resourcepacks"] = "Ресурс-паки",
+                ["modpacks.filter_shaderpacks"] = "Шейдери",
+                ["modpacks.search_watermark"] = "Пошук модів на Modrinth...",
+                ["modpacks.type_mods"] = "Моди",
+                ["modpacks.type_resourcepacks"] = "Ресурс-паки",
+                ["modpacks.type_shaders"] = "Шейдери",
+                ["modpacks.btn_search"] = "🔍 Знайти",
+                ["modpacks.btn_install"] = "ВСТАНОВИТИ",
+                ["modpacks.btn_installed"] = "✓ ОК",
+                ["modpacks.modal_title"] = "СТВОРЕННЯ ЗБІРКИ",
+                ["modpacks.name_label"] = "НАЗВА ЗБІРКИ",
+                ["modpacks.name_watermark"] = "Наприклад: Моя збірка",
+                ["modpacks.version_label"] = "ВЕРСІЯ MINECRAFT",
+                ["modpacks.loader_label"] = "ЗАВАНТАЖУВАЧ (LOADER)",
+                ["modpacks.btn_cancel"] = "СКАСУВАТИ",
+                ["modpacks.btn_confirm_create"] = "СТВОРИТИ",
+                ["modpacks.delete_file_confirm"] = "Видалити файл {0}?",
+                ["modpacks.delete_file_title"] = "Видалення файлу",
+                ["modpacks.file_deleted"] = "Файл {0} видалено.",
+                ["modpacks.searching"] = "Пошук на Modrinth...",
+                ["modpacks.found_results"] = "Знайдено: {0} результатів",
+                ["modpacks.search_error"] = "Помилка пошуку: {0}",
+                ["modpacks.downloading"] = "Завантаження {0}...",
+                ["modpacks.installed_file"] = "✓ Встановлено: {0}",
+                ["modpacks.install_error"] = "Помилка встановлення: {0}",
+                ["modpacks.download_error_title"] = "Помилка завантаження",
+                ["modpacks.default_name"] = "Збірка {0}",
+                ["modpacks.enter_name"] = "Введіть назву збірки",
+                ["modpacks.error_title"] = "Помилка",
+                ["modpacks.creating"] = "Створення збірки...",
+                ["modpacks.created"] = "Збірку \"{0}\" успішно створено!",
+                ["modpacks.create_error_title"] = "Помилка створення",
+                ["modpacks.delete_confirm"] = "Ви дійсно бажаєте видалити збірку \"{0}\" та всі її моди?",
+                ["modpacks.delete_title"] = "Видалення збірки",
+                ["modpacks.deleted"] = "Збірку видалено.",
+                ["modpacks.import_title"] = "Виберіть файл збірки Modrinth (.mrpack)",
+                ["modpacks.importing"] = "Імпорт .mrpack...",
+                ["modpacks.import_no_index"] = "Файл .mrpack не містить modrinth.index.json",
+                ["modpacks.imported"] = "Збірку \"{0}\" успішно імпортовано!",
+                ["modpacks.import_success_title"] = "Імпорт завершено",
+                ["modpacks.import_success_msg"] = "Збірку \"{0}\" ({1} {2}) успішно створено.",
+                ["modpacks.import_error_title"] = "Помилка імпорту",
+                ["modpacks.mods_count"] = "{0} мод."
             }
         };
 
@@ -558,11 +735,11 @@ namespace RaytolfasLauncher
                 return DefaultLanguage;
 
             string normalized = language.Trim().ToLowerInvariant();
-            if (normalized.StartsWith("en", StringComparison.Ordinal))
-                return "en";
+            if (normalized.StartsWith("ru", StringComparison.Ordinal))
+                return "ru";
             if (normalized.StartsWith("uk", StringComparison.Ordinal) || normalized.StartsWith("ua", StringComparison.Ordinal))
                 return "uk";
-            return "ru";
+            return "en";
         }
 
         public static string Get(string key, string? language)
@@ -571,8 +748,11 @@ namespace RaytolfasLauncher
             if (Texts.TryGetValue(normalizedLanguage, out var byLanguage) && byLanguage.TryGetValue(key, out var translated))
                 return translated;
 
-            if (Texts[DefaultLanguage].TryGetValue(key, out var fallback))
-                return fallback;
+            if (Texts.TryGetValue("en", out var enDict) && enDict.TryGetValue(key, out var fallbackEn))
+                return fallbackEn;
+
+            if (Texts.TryGetValue("ru", out var ruDict) && ruDict.TryGetValue(key, out var fallbackRu))
+                return fallbackRu;
 
             return key;
         }
