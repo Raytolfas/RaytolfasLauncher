@@ -14,6 +14,10 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;obj_*\**</DefaultItemExcludes>
 
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
+
+    <!-- Single-File executable properties (packs all DLLs, native libraries, and .NET runtime into one single file) -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
