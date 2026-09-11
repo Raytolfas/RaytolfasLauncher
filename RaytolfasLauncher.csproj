@@ -13,11 +13,17 @@
 
     <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;obj_*\**</DefaultItemExcludes>
 
+    <Company>Raytolfas</Company>
+    <Product>Raytolfas Launcher</Product>
+    <Authors>Raytolfas</Authors>
+    <Copyright>Copyright © 2026 Raytolfas</Copyright>
+    <Description>Raytolfas Minecraft Launcher</Description>
+
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
 
     <!-- Single-File executable properties (packs all DLLs, native libraries, and .NET runtime into one single file) -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
