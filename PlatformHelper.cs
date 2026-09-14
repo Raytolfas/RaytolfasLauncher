@@ -17,6 +17,86 @@ namespace RaytolfasLauncher
         public static bool IsLinux => OperatingSystem.IsLinux();
         public static bool IsMacOS => OperatingSystem.IsMacOS();
 
+        public static bool IsArm64 =>
+            System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ||
+            System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.Arm64;
+
+        public static bool IsX64 =>
+            System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.X64 ||
+            System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.X64;
+
+        public static long GetTotalPhysicalMemoryMb()
+        {
+            try
+            {
+                if (IsLinux && File.Exists("/proc/meminfo"))
+                {
+                    foreach (var line in File.ReadLines("/proc/meminfo"))
+                    {
+                        if (line.StartsWith("MemTotal:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length >= 2 && long.TryParse(parts[1], out long memKb))
+                            {
+                                return memKb / 1024;
+                            }
+                        }
+                    }
+                }
+
+                long availBytes = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+                if (availBytes > 0)
+                    return availBytes / 1024 / 1024;
+            }
+            catch { }
+
+            return 4096;
+        }
+
+        public static string ResolveSymlink(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    var fileInfo = new FileInfo(path);
+                    var target = fileInfo.ResolveLinkTarget(true);
+                    if (target != null && File.Exists(target.FullName))
+                        return target.FullName;
+                }
+            }
+            catch { }
+            return path;
+        }
+
+        public static void SetExecutablePermission(string path)
+        {
+            if (!File.Exists(path) || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()))
+                return;
+
+            try
+            {
+                File.SetUnixFileMode(path,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                    UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                    UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+            }
+            catch
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "chmod",
+                        Arguments = $"+x \"{path}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    })?.WaitForExit(3000);
+                }
+                catch { }
+            }
+        }
+
         public static string GetDefaultMinecraftFolder()
         {
             try
@@ -211,14 +291,22 @@ namespace RaytolfasLauncher
             else
             {
                 AddPath("/usr/bin/java");
+                AddPath(ResolveSymlink("/usr/bin/java"));
                 AddPath("/usr/local/bin/java");
+                AddPath(ResolveSymlink("/usr/local/bin/java"));
                 AddPath("/etc/alternatives/java");
+                AddPath(ResolveSymlink("/etc/alternatives/java"));
 
+                string homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                 string[] linuxJvmRoots =
                 {
                     "/usr/lib/jvm",
                     "/usr/lib64/jvm",
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".sdkman/candidates/java")
+                    "/opt/java",
+                    "/opt/jvm",
+                    Path.Combine(homeDir, ".sdkman", "candidates", "java"),
+                    Path.Combine(homeDir, ".jdks"),
+                    Path.Combine(homeDir, ".local", "share", "jvm")
                 };
 
                 foreach (var root in linuxJvmRoots)
@@ -229,7 +317,9 @@ namespace RaytolfasLauncher
                     {
                         foreach (var dir in Directory.EnumerateDirectories(root))
                         {
-                            AddPath(Path.Combine(dir, "bin", "java"));
+                            string binJava = Path.Combine(dir, "bin", "java");
+                            AddPath(binJava);
+                            AddPath(ResolveSymlink(binJava));
                         }
                     }
                     catch { }
@@ -240,7 +330,9 @@ namespace RaytolfasLauncher
                 {
                     foreach (var p in envPath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
                     {
-                        AddPath(Path.Combine(p, "java"));
+                        string binJava = Path.Combine(p, "java");
+                        AddPath(binJava);
+                        AddPath(ResolveSymlink(binJava));
                     }
                 }
             }

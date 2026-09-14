@@ -411,7 +411,7 @@ namespace RaytolfasLauncher
             string loader = "")
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.4");
+            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.4.1");
 
             var facetsList = new List<string>();
 
@@ -451,7 +451,7 @@ namespace RaytolfasLauncher
             CancellationToken ct = default)
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.4");
+            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.4.1");
 
             string versionsUrl = $"https://api.modrinth.com/v2/project/{projectId}/version";
             var queryParts = new List<string>();
