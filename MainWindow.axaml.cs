@@ -43,6 +43,7 @@ using CmlLib.Core.Installers;
 using CmlLib.Core.Installer.Forge;
 using CmlLib.Core.ModLoaders.FabricMC;
 using CmlLib.Core.ProcessBuilder;
+using CmlLib.Core.Version;
 using DiscordRPC;
 using XboxAuthNet.Game.Accounts;
 
@@ -54,7 +55,7 @@ namespace RaytolfasLauncher
         private MinecraftLauncher? launcher;
         private LauncherSettings settings = new LauncherSettings();
         private readonly DiscordRpcClient discordClientID = new DiscordRpcClient("1472589510742118400");
-        private readonly string currentVersion = "0.0.4";
+        private readonly string currentVersion = "0.0.4.1";
         private readonly string updateUrl = "https://raw.githubusercontent.com/Raytolfas/Assets/refs/heads/main/RaytolfasLauncherMC/update.json";
         private const string ElyByProfileApiBaseUrl = "https://authserver.ely.by";
         private const string AuthlibInjectorLatestReleaseApiUrl = "https://api.github.com/repos/yushijinhun/authlib-injector/releases/latest";
@@ -572,7 +573,41 @@ namespace RaytolfasLauncher
                     }
                 }
 
+                IVersion? selectedVersion = null;
+                if (launcher != null)
+                {
+                    try { selectedVersion = await launcher.GetVersionAsync(versionId); } catch { }
+                }
+                int requiredMajor = JavaRuntimeManager.GetRequiredJavaMajorVersion(versionId, selectedVersion);
+
                 string? resolvedJavaPath = await GetResolvedJavaPathForLaunchAsync(versionId);
+
+                if (string.IsNullOrWhiteSpace(resolvedJavaPath) || !File.Exists(resolvedJavaPath))
+                {
+                    DownloadPanel.IsVisible = false;
+                    LaunchBtn.IsEnabled = true;
+                    string linuxHint = PlatformHelper.IsLinux ? $"\n\nКоманда для Linux:\nsudo apt install openjdk-{requiredMajor}-jre" : "";
+                    await RayMessageBox.ShowAsync(this,
+                        T("launch.message.java_missing", requiredMajor, linuxHint),
+                        T("launch.message.error_title"));
+                    return;
+                }
+
+                var detectedJavaInfo = JavaRuntimeManager.DetectJavaInfo(resolvedJavaPath);
+                if (!JavaRuntimeManager.IsJavaCompatible(detectedJavaInfo.MajorVersion, requiredMajor))
+                {
+                    string linuxHint = PlatformHelper.IsLinux ? $"\n\nКоманда для Linux:\nsudo apt install openjdk-{requiredMajor}-jre" : "";
+                    bool? proceed = await RayMessageBox.ShowConfirmAsync(this,
+                        T("launch.message.java_incompatible", versionId, requiredMajor, detectedJavaInfo.MajorVersion?.ToString() ?? "?", linuxHint),
+                        T("launch.message.error_title"));
+                    if (proceed != true)
+                    {
+                        DownloadPanel.IsVisible = false;
+                        LaunchBtn.IsEnabled = true;
+                        return;
+                    }
+                }
+
                 int launchRamMb = GetEffectiveLaunchRamMb(resolvedJavaPath, (int)RamSlider.Value);
 
                 var launchOption = new MLaunchOption
@@ -615,22 +650,58 @@ namespace RaytolfasLauncher
                     }
                 }
 
-                var process = await launcher.BuildProcessAsync(versionId, launchOption);
+                var process = await launcher!.BuildProcessAsync(versionId, launchOption);
 
                 DownloadPanel.IsVisible = false;
                 StatusLabel.Text = T("main.status.launching");
                 DownloadProgress.Value = 0;
+
+                var recentProcessLogs = new List<string>();
+                object logLock = new object();
+
+                void AppendProcessLog(string? line)
+                {
+                    if (string.IsNullOrWhiteSpace(line)) return;
+                    WriteLog(logWindow, line);
+                    lock (logLock)
+                    {
+                        recentProcessLogs.Add(line);
+                        if (recentProcessLogs.Count > 100)
+                            recentProcessLogs.RemoveAt(0);
+                    }
+                }
+
                 process.StartInfo.UseShellExecute = false;
-                process.StartInfo.RedirectStandardOutput = false;
-                process.StartInfo.RedirectStandardError = false;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.RedirectStandardError = true;
+
+                process.OutputDataReceived += (s, e) => AppendProcessLog(e.Data);
+                process.ErrorDataReceived += (s, e) => AppendProcessLog(e.Data);
 
                 if (settings.HideLauncherOnPlay) this.Hide();
 
                 process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
                 process.EnableRaisingEvents = true;
+
                 process.Exited += (s, e) =>
                 {
-                    string? crashHint = process.ExitCode != 0 ? TryGetMinecraftCrashHint() : null;
+                    try { process.WaitForExit(1000); } catch { }
+
+                    string? crashHint = null;
+                    if (process.ExitCode != 0)
+                    {
+                        crashHint = TryGetMinecraftCrashHint();
+                        if (string.IsNullOrWhiteSpace(crashHint))
+                        {
+                            lock (logLock)
+                            {
+                                crashHint = TryExtractJvmCrashHint(recentProcessLogs);
+                            }
+                        }
+                    }
+
                     Dispatcher.UIThread.Post(() =>
                     {
                         if (process.ExitCode != 0)
@@ -864,40 +935,123 @@ namespace RaytolfasLauncher
         private async Task<string?> GetResolvedJavaPathForLaunchAsync(string versionId)
         {
             string explicitPath = (JavaPathBox.Text ?? "").Trim();
-            if (!string.IsNullOrWhiteSpace(explicitPath))
+            if (!string.IsNullOrWhiteSpace(explicitPath) && File.Exists(explicitPath))
+            {
+                PlatformHelper.SetExecutablePermission(explicitPath);
                 return explicitPath;
+            }
 
+            IVersion? version = null;
             if (launcher != null)
             {
                 try
                 {
-                    var version = await launcher.GetVersionAsync(versionId);
-                    string? launcherJavaPath = launcher.GetJavaPath(version);
-                    if (!string.IsNullOrWhiteSpace(launcherJavaPath) && File.Exists(launcherJavaPath))
-                        return launcherJavaPath;
+                    version = await launcher.GetVersionAsync(versionId);
                 }
-                catch
-                {
-                }
+                catch { }
+            }
 
+            int requiredMajor = JavaRuntimeManager.GetRequiredJavaMajorVersion(versionId, version);
+
+            // 1. Check if launcher already has a downloaded Mojang runtime
+            if (launcher != null && version != null)
+            {
                 try
                 {
-                    string? defaultJavaPath = launcher.GetDefaultJavaPath();
-                    if (!string.IsNullOrWhiteSpace(defaultJavaPath) && File.Exists(defaultJavaPath))
-                        return defaultJavaPath;
+                    string? launcherJavaPath = launcher.GetJavaPath(version);
+                    if (!string.IsNullOrWhiteSpace(launcherJavaPath) && File.Exists(launcherJavaPath))
+                    {
+                        PlatformHelper.SetExecutablePermission(launcherJavaPath);
+                        var info = JavaRuntimeManager.DetectJavaInfo(launcherJavaPath);
+                        if (JavaRuntimeManager.IsJavaCompatible(info.MajorVersion, requiredMajor))
+                            return launcherJavaPath;
+                    }
                 }
-                catch
+                catch { }
+            }
+
+            // 2. Check previously downloaded Adoptium runtimes in .minecraft/runtime/
+            string runtimeDir = Path.Combine(settings.MinecraftPath, "runtime");
+            if (Directory.Exists(runtimeDir))
+            {
+                var runtimeCandidates = new List<string>();
+                try
                 {
+                    foreach (var sub in Directory.EnumerateDirectories(runtimeDir))
+                    {
+                        string? exec = JavaRuntimeManager.FindJavaExecutableInDirectory(sub);
+                        if (!string.IsNullOrWhiteSpace(exec))
+                            runtimeCandidates.Add(exec);
+                    }
+                }
+                catch { }
+
+                string? bestRuntime = JavaRuntimeManager.FindCompatibleJava(requiredMajor, runtimeCandidates);
+                if (!string.IsNullOrWhiteSpace(bestRuntime))
+                {
+                    PlatformHelper.SetExecutablePermission(bestRuntime);
+                    return bestRuntime;
                 }
             }
 
-            var discovered = PlatformHelper.DiscoverJavaPaths(settings.JavaPath)
+            // 3. Search system discovered Java installations
+            var systemJavaCandidates = PlatformHelper.DiscoverJavaPaths(settings.JavaPath).ToList();
+            string? compatibleSystemJava = JavaRuntimeManager.FindCompatibleJava(requiredMajor, systemJavaCandidates);
+            if (!string.IsNullOrWhiteSpace(compatibleSystemJava))
+            {
+                PlatformHelper.SetExecutablePermission(compatibleSystemJava);
+                return compatibleSystemJava;
+            }
+
+            // 4. If network is available, automatically download Adoptium OpenJDK runtime for this version
+            if (NetworkInterface.GetIsNetworkAvailable())
+            {
+                try
+                {
+                    var progress = new Progress<int>(percent =>
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            StatusLabel.Text = T("launch.status.downloading_java", requiredMajor, percent);
+                            DownloadProgress.Value = percent;
+                        }, DispatcherPriority.Background);
+                    });
+
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        StatusLabel.Text = T("launch.status.downloading_java_start", requiredMajor);
+                        DownloadPanel.IsVisible = true;
+                    });
+
+                    string downloadedJava = await JavaRuntimeManager.DownloadAndInstallAdoptiumAsync(
+                        requiredMajor,
+                        settings.MinecraftPath,
+                        progress);
+
+                    if (!string.IsNullOrWhiteSpace(downloadedJava) && File.Exists(downloadedJava))
+                    {
+                        PlatformHelper.SetExecutablePermission(downloadedJava);
+                        return downloadedJava;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Adoptium download failed: {ex.Message}");
+                }
+            }
+
+            // 5. Fallback: discover any java on system
+            var anyJava = systemJavaCandidates
                 .OrderBy(path => IsLikely32BitJava(path))
                 .ThenByDescending(path => TryReadJavaMajorVersion(path) ?? 0)
-                .ThenByDescending(path => string.Equals(path, settings.JavaPath, StringComparison.OrdinalIgnoreCase))
                 .FirstOrDefault();
 
-            return discovered;
+            if (!string.IsNullOrWhiteSpace(anyJava))
+            {
+                PlatformHelper.SetExecutablePermission(anyJava);
+            }
+
+            return anyJava;
         }
 
         private static bool IsLikely32BitJava(string? javawPath)
@@ -905,22 +1059,8 @@ namespace RaytolfasLauncher
             if (string.IsNullOrWhiteSpace(javawPath))
                 return false;
 
-            string? osArch = TryReadJavaReleaseValue(javawPath, "OS_ARCH");
-            if (!string.IsNullOrWhiteSpace(osArch))
-            {
-                string normalizedArch = osArch.Trim();
-                if (normalizedArch.Contains("64", StringComparison.OrdinalIgnoreCase))
-                    return false;
-
-                if (normalizedArch.Contains("86", StringComparison.OrdinalIgnoreCase) ||
-                    normalizedArch.Contains("32", StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-            }
-
-            return javawPath.IndexOf("(x86)", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   javawPath.IndexOf("\\x86\\", StringComparison.OrdinalIgnoreCase) >= 0;
+            var info = JavaRuntimeManager.DetectJavaInfo(javawPath);
+            return !info.Is64Bit;
         }
 
         private void AddJavaProfileFromPath(string javawPath)
@@ -935,7 +1075,7 @@ namespace RaytolfasLauncher
 
         private string BuildJavaProfileName(string javawPath)
         {
-            string? version = TryReadJavaVersion(javawPath);
+            var info = JavaRuntimeManager.DetectJavaInfo(javawPath);
             string folderName = "";
 
             var rootDir = Directory.GetParent(javawPath)?.Parent?.FullName;
@@ -944,72 +1084,79 @@ namespace RaytolfasLauncher
                 folderName = new DirectoryInfo(rootDir).Name;
             }
 
-            if (!string.IsNullOrWhiteSpace(version))
+            string bitSuffix = info.Is64Bit ? "64-bit" : "32-bit";
+            if (!string.IsNullOrWhiteSpace(info.FullVersion))
             {
-                return string.IsNullOrWhiteSpace(folderName) ? $"Java {version}" : $"Java {version} ({folderName})";
+                return string.IsNullOrWhiteSpace(folderName) ?
+                    $"Java {info.FullVersion} ({bitSuffix})" :
+                    $"Java {info.FullVersion} ({folderName}, {bitSuffix})";
+            }
+            if (info.MajorVersion.HasValue)
+            {
+                return string.IsNullOrWhiteSpace(folderName) ?
+                    $"Java {info.MajorVersion} ({bitSuffix})" :
+                    $"Java {info.MajorVersion} ({folderName}, {bitSuffix})";
             }
 
             return string.IsNullOrWhiteSpace(folderName) ? "Java" : $"Java ({folderName})";
         }
 
-        private string? TryReadJavaVersion(string javawPath)
+        private static int? TryReadJavaMajorVersion(string javawPath)
         {
-            return TryReadJavaReleaseValue(javawPath, "JAVA_VERSION");
+            if (string.IsNullOrWhiteSpace(javawPath)) return null;
+            return JavaRuntimeManager.DetectJavaInfo(javawPath).MajorVersion;
         }
 
-        private static string? TryReadJavaReleaseValue(string javawPath, string key)
+        private static string? TryExtractJvmCrashHint(List<string> lines)
         {
-            var rootDir = Directory.GetParent(javawPath)?.Parent?.FullName;
-            if (string.IsNullOrWhiteSpace(rootDir))
+            if (lines == null || lines.Count == 0)
                 return null;
 
-            string releasePath = Path.Combine(rootDir, "release");
-            if (!File.Exists(releasePath))
-                return null;
-
-            string prefix = key + "=";
-            foreach (var line in File.ReadLines(releasePath))
+            for (int i = lines.Count - 1; i >= 0; i--)
             {
-                if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                string line = lines[i].Trim();
+                if (string.IsNullOrWhiteSpace(line))
                     continue;
 
-                var parts = line.Split('=', 2);
-                if (parts.Length < 2)
-                    return null;
+                if (line.Contains("Could not create the Java Virtual Machine", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Error occurred during initialization of VM", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Could not reserve enough space", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Invalid maximum heap size", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("UnsupportedClassVersionError", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("UnsatisfiedLinkError", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("wrong ELF class", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("ELFCLASS", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("NoClassDefFoundError", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (i > 0)
+                    {
+                        string prev = lines[i - 1].Trim();
+                        if (!string.IsNullOrWhiteSpace(prev) &&
+                            (prev.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+                             prev.Contains("space", StringComparison.OrdinalIgnoreCase) ||
+                             prev.Contains("heap", StringComparison.OrdinalIgnoreCase) ||
+                             prev.Contains("Exception", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            return $"{prev}\n{line}";
+                        }
+                    }
+                    return line;
+                }
 
-                return parts[1].Trim().Trim('"');
+                if (line.StartsWith("Error:", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("Fatal:", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Exception in thread", StringComparison.OrdinalIgnoreCase))
+                {
+                    return line.Length > 320 ? line.Substring(0, 320) + "..." : line;
+                }
             }
 
             return null;
         }
 
-        private static int? TryReadJavaMajorVersion(string javawPath)
-        {
-            string? version = TryReadJavaReleaseValue(javawPath, "JAVA_VERSION");
-            if (string.IsNullOrWhiteSpace(version))
-                return null;
-
-            string normalizedVersion = version.Trim().Trim('"');
-            string[] parts = normalizedVersion.Split(new[] { '.', '_', '-', '+' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 0)
-                return null;
-
-            if (parts[0] == "1" && parts.Length > 1 && int.TryParse(parts[1], out int legacyMajor))
-                return legacyMajor;
-
-            return int.TryParse(parts[0], out int major) ? major : null;
-        }
-
         private long GetTotalPhysicalMemoryMb()
         {
-            try
-            {
-                return GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024;
-            }
-            catch
-            {
-                return 8192;
-            }
+            return PlatformHelper.GetTotalPhysicalMemoryMb();
         }
 
         private int NormalizeConfiguredRamMb(int requestedRamMb)
@@ -1023,7 +1170,7 @@ namespace RaytolfasLauncher
             if (totalMemoryMb <= 0)
                 return normalizedRamMb;
 
-            long reservedForSystemMb = totalMemoryMb <= 4096 ? 1024 : Math.Max(1024, totalMemoryMb / 4);
+            long reservedForSystemMb = totalMemoryMb <= 2048 ? 512 : totalMemoryMb <= 4096 ? 1024 : Math.Max(1024, totalMemoryMb / 4);
             long safeCapMb = Math.Max(minimumRamMb, totalMemoryMb - reservedForSystemMb);
             return Math.Min(normalizedRamMb, (int)Math.Min(safeCapMb, maximumRamMb));
         }
