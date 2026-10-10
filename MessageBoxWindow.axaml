@@ -1,25 +1,25 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="RaytolfasLauncher.MessageBoxWindow"
         Title="Сообщение"
-        Width="420" MinHeight="180" MaxHeight="450" SizeToContent="Height"
+        Width="440" MinHeight="170" MaxHeight="450" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         SystemDecorations="None"
         Background="Transparent"
         TransparencyLevelHint="Transparent"
         CanResize="False">
 
-    <Border Background="#121212" BorderBrush="#1A1A1A" BorderThickness="1" CornerRadius="16" Padding="20">
+    <Border Background="#101217" BorderBrush="#202430" BorderThickness="1" CornerRadius="16" Padding="20">
         <Grid RowDefinitions="Auto,*,Auto">
-            <TextBlock x:Name="TitleText" Grid.Row="0" Text="СООБЩЕНИЕ" Foreground="#BB86FC" FontSize="15" FontWeight="Bold" Margin="0,0,0,12"/>
+            <TextBlock x:Name="TitleText" Grid.Row="0" Text="СООБЩЕНИЕ" Foreground="#A250FF" FontSize="13" FontWeight="Bold" Margin="0,0,0,12"/>
 
             <ScrollViewer Grid.Row="1" MaxHeight="280" Margin="0,0,0,16">
-                <TextBlock x:Name="MessageText" Foreground="White" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
+                <TextBlock x:Name="MessageText" Foreground="#DDE0EC" FontSize="13" TextWrapping="Wrap" LineHeight="20"/>
             </ScrollViewer>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button x:Name="CancelButton" Content="ОТМЕНА" Click="Cancel_Click" IsVisible="False" Height="36" Width="100" Margin="0,0,8,0" Background="#2D2D2D" Foreground="White" FontWeight="SemiBold" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8" Cursor="Hand"/>
-                <Button x:Name="OkButton" Content="OK" Click="Ok_Click" Height="36" Width="100" Background="#BB86FC" Foreground="Black" FontWeight="Bold" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8" Cursor="Hand"/>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button x:Name="CancelButton" Content="ОТМЕНА" Click="Cancel_Click" IsVisible="False" Height="36" Width="100" Background="#1E2028" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8" Cursor="Hand" BorderThickness="0"/>
+                <Button x:Name="OkButton" Content="OK" Click="Ok_Click" Height="36" Width="100" Background="#A250FF" Foreground="White" FontSize="11" FontWeight="Bold" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8" Cursor="Hand" BorderThickness="0"/>
             </StackPanel>
         </Grid>
     </Border>

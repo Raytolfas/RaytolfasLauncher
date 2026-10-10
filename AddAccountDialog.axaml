@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="RaytolfasLauncher.AddAccountDialog"
         Title="Добавить аккаунт"
@@ -9,17 +9,17 @@
         TransparencyLevelHint="Transparent"
         CanResize="False">
 
-    <Border Background="#121212" BorderBrush="#1A1A1A" BorderThickness="1" CornerRadius="16">
-        <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto">
-            <TextBlock x:Name="TitleText" Grid.Row="0" Text="ДОБАВИТЬ ОФФЛАЙН АККАУНТ" Foreground="#BB86FC" FontSize="14" FontWeight="Bold" Margin="0,0,0,12"/>
+    <Border Background="#101217" BorderBrush="#202430" BorderThickness="1" CornerRadius="16" Padding="20">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+            <TextBlock x:Name="TitleText" Grid.Row="0" Text="ДОБАВИТЬ ОФФЛАЙН АККАУНТ" Foreground="White" FontSize="13" FontWeight="Bold" Margin="0,0,0,12"/>
 
-            <TextBlock x:Name="PromptText" Grid.Row="1" Text="Введите никнейм:" Foreground="Gray" FontSize="11" Margin="0,0,0,6"/>
+            <TextBlock x:Name="PromptText" Grid.Row="1" Text="Введите никнейм:" Foreground="#8E9297" FontSize="11" Margin="0,0,0,6"/>
 
-            <TextBox x:Name="UsernameBox" Grid.Row="2" Background="#2D2D2D" Foreground="White" BorderThickness="0" CornerRadius="8" Padding="10,8" Margin="0,0,0,16"/>
+            <TextBox x:Name="UsernameBox" Grid.Row="2" Background="#161822" Foreground="White" BorderBrush="#252A38" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,16"/>
 
             <Grid Grid.Row="3" ColumnDefinitions="*,*">
-                <Button x:Name="CancelButton" Grid.Column="0" Content="ОТМЕНА" Click="Cancel_Click" Height="36" Margin="0,0,6,0" Background="#2D2D2D" Foreground="White" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8"/>
-                <Button x:Name="ConfirmButton" Grid.Column="1" Content="ДОБАВИТЬ" Click="Confirm_Click" Height="36" Margin="6,0,0,0" Background="#BB86FC" Foreground="Black" FontWeight="Bold" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8"/>
+                <Button x:Name="CancelButton" Grid.Column="0" Content="ОТМЕНА" Click="Cancel_Click" Height="36" Margin="0,0,6,0" Background="#1E2028" Foreground="White" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8" Cursor="Hand" BorderThickness="0"/>
+                <Button x:Name="ConfirmButton" Grid.Column="1" Content="ДОБАВИТЬ" Click="Confirm_Click" Height="36" Margin="6,0,0,0" Background="#A250FF" Foreground="White" FontSize="11" FontWeight="Bold" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="8" Cursor="Hand" BorderThickness="0"/>
             </Grid>
         </Grid>
     </Border>

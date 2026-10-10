@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Raytolfas
+﻿// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 //
 // Raytolfas Launcher is free software: you can redistribute it and/or modify
@@ -25,6 +25,7 @@ using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -55,7 +56,7 @@ namespace RaytolfasLauncher
         private MinecraftLauncher? launcher;
         private LauncherSettings settings = new LauncherSettings();
         private readonly DiscordRpcClient discordClientID = new DiscordRpcClient("1472589510742118400");
-        private readonly string currentVersion = "0.0.4.1";
+        private readonly string currentVersion = "0.0.5";
         private readonly string updateUrl = "https://raw.githubusercontent.com/Raytolfas/Assets/refs/heads/main/RaytolfasLauncherMC/update.json";
         private const string ElyByProfileApiBaseUrl = "https://authserver.ely.by";
         private const string AuthlibInjectorLatestReleaseApiUrl = "https://api.github.com/repos/yushijinhun/authlib-injector/releases/latest";
@@ -77,6 +78,9 @@ namespace RaytolfasLauncher
         private FabricInstaller? fabricInstaller;
         private bool suppressOptionEvents;
         private TrayIcon? trayIcon;
+        private Timestamps? gameSessionTimestamps;
+        private string? currentConnectedServer;
+        private static readonly Regex ServerConnectRegex = new Regex(@"Connecting to\s+\[?([a-zA-Z0-9\.\-_]+)\]?(?:[,\s:]+(\d+))?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         private string ElyByToolsFolder => Path.Combine(settingsFolder, "tools", "elyby");
         private string ElyByAuthlibInjectorPath => Path.Combine(ElyByToolsFolder, "authlib-injector.jar");
@@ -125,6 +129,15 @@ namespace RaytolfasLauncher
                 };
 
                 InitDiscordRPC();
+                RefreshRecentLaunches();
+
+                this.PropertyChanged += (s, e) =>
+                {
+                    if (e.Property == Window.WindowStateProperty)
+                    {
+                        UpdateMaximizeIcon();
+                    }
+                };
 
                 this.Loaded += async (s, e) =>
                 {
@@ -182,6 +195,8 @@ namespace RaytolfasLauncher
             CheckBoxForce.Content = T("main.reinstall_files");
             LaunchBtn.Content = T("main.play");
             StatusLabel.Text = T("main.status.preparing");
+            if (RecentLaunchesTitle != null) RecentLaunchesTitle.Text = T("recent.title");
+            if (RecentEmptyText != null) RecentEmptyText.Text = T("recent.empty");
 
             SettingsTitleText.Text = T("settings.title");
             BackgroundLabel.Text = T("settings.background");
@@ -243,7 +258,7 @@ namespace RaytolfasLauncher
             }
             else if (AccountSelector?.SelectedItem is ComboBoxItem item && item.Tag is AccountData account)
             {
-                UpdateAvatar(account.Username);
+                UpdateAvatar(account);
             }
         }
 
@@ -375,6 +390,7 @@ namespace RaytolfasLauncher
                 AddDefaultAccount();
 
             AccountSelector.SelectionChanged += AccountSelector_SelectionChanged;
+            LoadAvatar();
         }
 
         private void AddDefaultAccount()
@@ -391,7 +407,7 @@ namespace RaytolfasLauncher
             if (AccountSelector.SelectedItem is ComboBoxItem item && item.Tag is AccountData acc)
             {
                 settings.SelectedAccountIndex = AccountSelector.SelectedIndex;
-                UpdateAvatar(acc.Username);
+                UpdateAvatar(acc);
                 SaveSettings();
             }
         }
@@ -399,10 +415,25 @@ namespace RaytolfasLauncher
         private void LoadAvatar()
         {
             if (AccountSelector.SelectedItem is ComboBoxItem item && item.Tag is AccountData acc)
-                UpdateAvatar(acc.Username);
+            {
+                UpdateAvatar(acc);
+            }
+            else if (settings.Accounts.Count > 0 && settings.SelectedAccountIndex >= 0 && settings.SelectedAccountIndex < settings.Accounts.Count)
+            {
+                UpdateAvatar(settings.Accounts[settings.SelectedAccountIndex]);
+            }
         }
 
-        private async void UpdateAvatar(string username)
+        private void UpdateAvatar(string username)
+        {
+            var acc = settings.Accounts.FirstOrDefault(a => string.Equals(a.Username, username, StringComparison.OrdinalIgnoreCase));
+            if (acc != null)
+                UpdateAvatar(acc);
+            else
+                UpdateAvatar(new AccountData { Username = username, Type = "Offline" });
+        }
+
+        private async void UpdateAvatar(AccountData acc)
         {
             if (!settings.ShowAccountAvatar)
             {
@@ -410,29 +441,33 @@ namespace RaytolfasLauncher
                 return;
             }
 
+            if (acc == null)
+                return;
+
+            if (acc.AvatarBitmap != null)
+            {
+                PlayerAvatar.Source = acc.AvatarBitmap;
+                SidebarPlayerAvatar.Source = acc.AvatarBitmap;
+            }
+
             try
             {
-                if (!NetworkInterface.GetIsNetworkAvailable())
-                {
-                    var uri = new Uri("avares://RaytolfasLauncher/Assets/no_internet.png");
-                    if (AssetLoader.Exists(uri))
-                        PlayerAvatar.Source = new Bitmap(AssetLoader.Open(uri));
-                    return;
-                }
+                var bmp = await SkinAvatarHelper.GetAvatarAsync(
+                    acc.Username,
+                    settingsFolder,
+                    acc.Type,
+                    acc.UUID,
+                    settings.EnableElyBySkins);
 
-                byte[] bytes = await apiClient.GetByteArrayAsync($"https://minotar.net/avatar/{username}/32");
-                using var ms = new MemoryStream(bytes);
-                PlayerAvatar.Source = new Bitmap(ms);
+                if (bmp != null)
+                {
+                    acc.AvatarBitmap = bmp;
+                    PlayerAvatar.Source = bmp;
+                    SidebarPlayerAvatar.Source = bmp;
+                }
             }
             catch
             {
-                try
-                {
-                    byte[] bytes = await apiClient.GetByteArrayAsync("https://minotar.net/avatar/char/32");
-                    using var ms = new MemoryStream(bytes);
-                    PlayerAvatar.Source = new Bitmap(ms);
-                }
-                catch { }
             }
         }
 
@@ -620,10 +655,60 @@ namespace RaytolfasLauncher
                     JavaPath = resolvedJavaPath,
                 };
 
-                string modpackDir = Path.Combine(settings.MinecraftPath, "modpacks", versionId);
-                if (Directory.Exists(modpackDir))
+                string? modpackDir = null;
+                string candidateDir = Path.Combine(settings.MinecraftPath, "modpacks", versionId);
+                if (Directory.Exists(candidateDir))
                 {
-                    launchOption.Path = new MinecraftPath(settings.MinecraftPath, modpackDir);
+                    modpackDir = candidateDir;
+                }
+                else
+                {
+                    var pack = ModpackManager.GetModpacks(settings.MinecraftPath)
+                        .FirstOrDefault(p => string.Equals(p.Id, versionId, StringComparison.OrdinalIgnoreCase) 
+                                          || string.Equals(p.Name, versionId, StringComparison.OrdinalIgnoreCase));
+                    if (pack != null && Directory.Exists(pack.RootPath))
+                    {
+                        modpackDir = pack.RootPath;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(modpackDir) && Directory.Exists(modpackDir))
+                {
+                    var customPath = new MinecraftPath(modpackDir)
+                    {
+                        Library = Path.Combine(settings.MinecraftPath, "libraries"),
+                        Versions = Path.Combine(settings.MinecraftPath, "versions"),
+                        Assets = Path.Combine(settings.MinecraftPath, "assets"),
+                        Runtime = Path.Combine(settings.MinecraftPath, "runtime")
+                    };
+                    launchOption.Path = customPath;
+
+                    string packModsDir = Path.Combine(modpackDir, "mods");
+                    Directory.CreateDirectory(packModsDir);
+                    Directory.CreateDirectory(Path.Combine(modpackDir, "config"));
+                    Directory.CreateDirectory(Path.Combine(modpackDir, "saves"));
+                    Directory.CreateDirectory(Path.Combine(modpackDir, "resourcepacks"));
+                    Directory.CreateDirectory(Path.Combine(modpackDir, "shaderpacks"));
+
+                    var extraJvm = launchOption.ExtraJvmArguments?.ToList() ?? new List<CmlLib.Core.ProcessBuilder.MArgument>();
+                    extraJvm.Add(new CmlLib.Core.ProcessBuilder.MArgument($"-Dfabric.modsFolder={packModsDir}"));
+                    launchOption.ExtraJvmArguments = extraJvm;
+                }
+
+                if (settings.DirectConnectServer && !string.IsNullOrWhiteSpace(settings.DirectServerAddress))
+                {
+                    string address = settings.DirectServerAddress.Trim();
+                    string serverHost = address;
+                    int serverPort = 25565;
+                    if (address.Contains(':'))
+                    {
+                        var parts = address.Split(':');
+                        serverHost = parts[0];
+                        if (parts.Length > 1 && int.TryParse(parts[1], out int p))
+                            serverPort = p;
+                    }
+                    launchOption.ServerIp = serverHost;
+                    launchOption.ServerPort = serverPort;
                 }
 
                 if (!string.IsNullOrWhiteSpace(JavaArgsBox.Text))
@@ -656,6 +741,7 @@ namespace RaytolfasLauncher
                 StatusLabel.Text = T("main.status.launching");
                 DownloadProgress.Value = 0;
 
+                string displayGameVersion = ResolveDisplayGameVersion(versionId, modpackDir);
                 var recentProcessLogs = new List<string>();
                 object logLock = new object();
 
@@ -669,17 +755,26 @@ namespace RaytolfasLauncher
                         if (recentProcessLogs.Count > 100)
                             recentProcessLogs.RemoveAt(0);
                     }
+
+                    try { DetectMinecraftActivity(line, displayGameVersion); } catch { }
                 }
 
                 process.StartInfo.UseShellExecute = false;
                 process.StartInfo.RedirectStandardOutput = true;
                 process.StartInfo.RedirectStandardError = true;
+                if (!string.IsNullOrEmpty(modpackDir) && Directory.Exists(modpackDir))
+                {
+                    process.StartInfo.WorkingDirectory = modpackDir;
+                }
 
                 process.OutputDataReceived += (s, e) => AppendProcessLog(e.Data);
                 process.ErrorDataReceived += (s, e) => AppendProcessLog(e.Data);
 
                 if (settings.HideLauncherOnPlay) this.Hide();
 
+                RecordRecentLaunch(versionId);
+
+                gameSessionTimestamps = Timestamps.Now;
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
@@ -704,17 +799,20 @@ namespace RaytolfasLauncher
 
                     Dispatcher.UIThread.Post(() =>
                     {
+                        gameSessionTimestamps = null;
+                        currentConnectedServer = null;
                         if (process.ExitCode != 0)
                         {
+                            List<string> logsCopy;
+                            lock (logLock) { logsCopy = new List<string>(recentProcessLogs); }
+                            string? analysis = SmartCrashAnalyzer.Analyze(crashHint, logsCopy, currentLanguage);
+                            string recommendation = !string.IsNullOrWhiteSpace(analysis) ? $"\n\n{T("launch.smart_crash_title")}\n{analysis}" : "";
+                            string message = $"{T("launch.message.crashed", process.ExitCode)}{recommendation}";
                             if (!string.IsNullOrWhiteSpace(crashHint))
                             {
                                 WriteLog(logWindow, T("launch.log.crash_hint", crashHint));
-                                RayMessageBox.Show(T("launch.message.crashed_with_hint", process.ExitCode, crashHint), T("launch.message.error_title"), this);
                             }
-                            else
-                            {
-                                RayMessageBox.Show(T("launch.message.crashed", process.ExitCode), T("launch.message.error_title"), this);
-                            }
+                            RayMessageBox.Show(message, T("launch.message.error_title"), this);
                         }
 
                         if (settings.HideLauncherOnPlay || !this.IsVisible)
@@ -730,13 +828,8 @@ namespace RaytolfasLauncher
                     }, DispatcherPriority.Background);
                 };
 
-                string? serverDisplay = !string.IsNullOrWhiteSpace(settings.LastServerName)
-                    ? settings.LastServerName
-                    : settings.LastServerIp;
-                if (!string.IsNullOrWhiteSpace(serverDisplay))
-                    SetDiscordStatus(T("discord.state.server", serverDisplay), T("discord.details.version", versionId));
-                else
-                    SetDiscordStatus(T("discord.state.in_game"), T("discord.details.version", versionId));
+                currentConnectedServer = null;
+                SetDiscordStatus(T("discord.state.main_menu"), T("discord.details.version", displayGameVersion));
             }
             catch (Exception ex)
             {
@@ -829,6 +922,8 @@ namespace RaytolfasLauncher
 
             PathBox.Text = settings.MinecraftPath;
             JavaArgsBox.Text = settings.JvmArgs;
+            CbDirectConnect.IsChecked = settings.DirectConnectServer;
+            DirectServerIpBox.Text = settings.DirectServerAddress;
 
             if (launcher != null)
                 launcher = new MinecraftLauncher(new MinecraftPath(settings.MinecraftPath));
@@ -953,7 +1048,6 @@ namespace RaytolfasLauncher
 
             int requiredMajor = JavaRuntimeManager.GetRequiredJavaMajorVersion(versionId, version);
 
-            // 1. Check if launcher already has a downloaded Mojang runtime
             if (launcher != null && version != null)
             {
                 try
@@ -970,7 +1064,6 @@ namespace RaytolfasLauncher
                 catch { }
             }
 
-            // 2. Check previously downloaded Adoptium runtimes in .minecraft/runtime/
             string runtimeDir = Path.Combine(settings.MinecraftPath, "runtime");
             if (Directory.Exists(runtimeDir))
             {
@@ -994,7 +1087,6 @@ namespace RaytolfasLauncher
                 }
             }
 
-            // 3. Search system discovered Java installations
             var systemJavaCandidates = PlatformHelper.DiscoverJavaPaths(settings.JavaPath).ToList();
             string? compatibleSystemJava = JavaRuntimeManager.FindCompatibleJava(requiredMajor, systemJavaCandidates);
             if (!string.IsNullOrWhiteSpace(compatibleSystemJava))
@@ -1003,7 +1095,6 @@ namespace RaytolfasLauncher
                 return compatibleSystemJava;
             }
 
-            // 4. If network is available, automatically download Adoptium OpenJDK runtime for this version
             if (NetworkInterface.GetIsNetworkAvailable())
             {
                 try
@@ -1040,7 +1131,6 @@ namespace RaytolfasLauncher
                 }
             }
 
-            // 5. Fallback: discover any java on system
             var anyJava = systemJavaCandidates
                 .OrderBy(path => IsLikely32BitJava(path))
                 .ThenByDescending(path => TryReadJavaMajorVersion(path) ?? 0)
@@ -1278,6 +1368,8 @@ namespace RaytolfasLauncher
                 settings.Language = GetSelectedComboTag(LanguageBox, currentLanguage);
                 currentLanguage = LocalizationManager.NormalizeLanguage(settings.Language);
                 settings.CustomBackgroundPath = BgPathBox.Text ?? "";
+                settings.DirectConnectServer = CbDirectConnect.IsChecked ?? false;
+                settings.DirectServerAddress = DirectServerIpBox.Text?.Trim() ?? "";
 
                 SaveSettings();
 
@@ -1667,6 +1759,27 @@ namespace RaytolfasLauncher
             {
                 settings.LastVersion = tag;
                 SaveSettings();
+                if (ExpandVersionBtn != null)
+                {
+                    ToolTip.SetTip(ExpandVersionBtn, $"Развернуть выбор версии ({item.Content})");
+                }
+            }
+        }
+
+        private bool isVersionBarCollapsed = false;
+
+        private void ToggleVersionBar_Click(object? sender, RoutedEventArgs e)
+        {
+            isVersionBarCollapsed = !isVersionBarCollapsed;
+            if (VersionExpandedBar != null)
+                VersionExpandedBar.IsVisible = !isVersionBarCollapsed;
+            if (ExpandVersionBtn != null)
+            {
+                ExpandVersionBtn.IsVisible = isVersionBarCollapsed;
+                if (VersionBox?.SelectedItem is ComboBoxItem sel)
+                {
+                    ToolTip.SetTip(ExpandVersionBtn, $"Развернуть выбор версии ({sel.Content})");
+                }
             }
         }
 
@@ -1709,30 +1822,155 @@ namespace RaytolfasLauncher
             catch { }
         }
 
-        public void SetDiscordStatus(string state, string? details = null)
+        public void SetDiscordStatus(string state, string? details = null, string? serverHost = null)
         {
             if (settings?.ShowDiscordStatus == false || discordClient == null) return;
 
             string imageKey = "logo";
-            string finalState = state;
+            string imageText = T("discord.image_text");
+            string smallKey = "icon_play";
+            string smallText = details ?? "Minecraft";
+
+            if (!string.IsNullOrWhiteSpace(serverHost) &&
+                !serverHost.Equals("localhost", StringComparison.OrdinalIgnoreCase) &&
+                !serverHost.StartsWith("127.", StringComparison.OrdinalIgnoreCase))
+            {
+                imageKey = $"https://api.mcsrvstat.us/icon/{serverHost}";
+                imageText = serverHost;
+                smallKey = "logo";
+                smallText = "Raytolfas Launcher";
+            }
 
             try
             {
                 discordClient.SetPresence(new RichPresence()
                 {
                     Details = details,
-                    State = finalState,
+                    State = state,
                     Assets = new DiscordRPC.Assets()
                     {
                         LargeImageKey = imageKey,
-                        LargeImageText = T("discord.image_text"),
-                        SmallImageKey = "icon_play"
+                        LargeImageText = imageText,
+                        SmallImageKey = smallKey,
+                        SmallImageText = smallText
                     },
-                    Timestamps = Timestamps.Now
+                    Timestamps = gameSessionTimestamps ?? Timestamps.Now
                 });
             }
             catch
             {
+            }
+        }
+
+        private string ResolveDisplayGameVersion(string versionId, string? modpackDir = null)
+        {
+            try
+            {
+                var pack = ModpackManager.GetModpacks(settings.MinecraftPath)
+                    .FirstOrDefault(p => string.Equals(p.Id, versionId, StringComparison.OrdinalIgnoreCase) 
+                                      || string.Equals(p.Name, versionId, StringComparison.OrdinalIgnoreCase)
+                                      || (!string.IsNullOrEmpty(modpackDir) && string.Equals(p.RootPath, modpackDir, StringComparison.OrdinalIgnoreCase)));
+                if (pack != null && !string.IsNullOrWhiteSpace(pack.GameVersion))
+                {
+                    return pack.GameVersion.Trim();
+                }
+
+                if (!string.IsNullOrEmpty(modpackDir) && File.Exists(Path.Combine(modpackDir, "profile.json")))
+                {
+                    string json = File.ReadAllText(Path.Combine(modpackDir, "profile.json"));
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("gameVersion", out var gv) && !string.IsNullOrWhiteSpace(gv.GetString()))
+                    {
+                        return gv.GetString()!.Trim();
+                    }
+                }
+            }
+            catch { }
+
+            var match = Regex.Match(versionId, @"\b(1\.\d+(?:\.\d+)?)\b");
+            if (match.Success)
+            {
+                return match.Groups[1].Value;
+            }
+
+            return versionId;
+        }
+
+        private void DetectMinecraftActivity(string line, string displayGameVersion)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return;
+
+            if (!line.Contains("[CHAT]"))
+            {
+                var match = ServerConnectRegex.Match(line);
+                if (match.Success)
+                {
+                    string host = match.Groups[1].Value.Trim();
+                    string port = match.Groups[2].Success ? match.Groups[2].Value.Trim() : "";
+
+                    if (host.Equals("integrated", StringComparison.OrdinalIgnoreCase) ||
+                        line.Contains("integrated", StringComparison.OrdinalIgnoreCase))
+                    {
+                        currentConnectedServer = null;
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            SetDiscordStatus(T("discord.state.singleplayer"), T("discord.details.version", displayGameVersion));
+                        });
+                        return;
+                    }
+
+                    string serverAddress = !string.IsNullOrEmpty(port) && port != "25565" ? $"{host}:{port}" : host;
+                    currentConnectedServer = serverAddress;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        settings.LastServerIp = serverAddress;
+                        SaveSettings();
+                        SetDiscordStatus(T("discord.state.server", serverAddress), T("discord.details.version", displayGameVersion), serverAddress);
+                    });
+                    return;
+                }
+            }
+
+            if (line.Contains("Starting integrated minecraft server", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("Connecting to integrated server", StringComparison.OrdinalIgnoreCase))
+            {
+                currentConnectedServer = null;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    SetDiscordStatus(T("discord.state.singleplayer"), T("discord.details.version", displayGameVersion));
+                });
+                return;
+            }
+
+            bool isDisconnect = false;
+            if (line.Contains("Stopping worker threads", StringComparison.OrdinalIgnoreCase))
+            {
+                isDisconnect = true;
+            }
+            else if (!line.Contains("[CHAT]"))
+            {
+                if (line.Contains("lost connection", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("left the game", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("disconnected", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("connection closed", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("connection reset", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("stopping singleplayer server", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("stopping server", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("failed to connect", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("could not connect", StringComparison.OrdinalIgnoreCase))
+                {
+                    isDisconnect = true;
+                }
+            }
+
+            if (isDisconnect)
+            {
+                currentConnectedServer = null;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    SetDiscordStatus(T("discord.state.main_menu"), T("discord.details.version", displayGameVersion));
+                });
+                return;
             }
         }
         #endregion
@@ -1745,10 +1983,41 @@ namespace RaytolfasLauncher
                 var menu = new NativeMenu();
                 var openItem = new NativeMenuItem(T("tray.open"));
                 openItem.Click += (s, e) => Dispatcher.UIThread.Post(ToggleWindow);
+
+                var launchItem = new NativeMenuItem(T("tray.launch"));
+                launchItem.Click += (s, e) => Dispatcher.UIThread.Post(() =>
+                {
+                    if (!this.IsVisible)
+                    {
+                        this.Show();
+                        this.WindowState = WindowState.Normal;
+                        this.Activate();
+                    }
+                    if (LaunchBtn.IsEnabled)
+                    {
+                        LaunchBtn_Click(this, new RoutedEventArgs());
+                    }
+                });
+
+                var modpacksItem = new NativeMenuItem(T("tray.modpacks"));
+                modpacksItem.Click += (s, e) => Dispatcher.UIThread.Post(async () =>
+                {
+                    if (!this.IsVisible)
+                    {
+                        this.Show();
+                        this.WindowState = WindowState.Normal;
+                        this.Activate();
+                    }
+                    var win = new ModpacksWindow(settings.MinecraftPath, currentLanguage, launcher);
+                    await win.ShowDialog(this);
+                });
+
                 var exitItem = new NativeMenuItem(T("tray.exit"));
                 exitItem.Click += (s, e) => Dispatcher.UIThread.Post(ShutdownApp);
 
                 menu.Add(openItem);
+                menu.Add(launchItem);
+                menu.Add(modpacksItem);
                 menu.Add(new NativeMenuItemSeparator());
                 menu.Add(exitItem);
 
@@ -2370,11 +2639,492 @@ namespace RaytolfasLauncher
             BeginMoveDrag(e);
         }
 
+        #region Modrinth Navigation & View Switching
+        private void SwitchView(string viewName)
+        {
+            if (ViewHome != null) ViewHome.IsVisible = viewName == "home";
+            if (ViewScreenshots != null) ViewScreenshots.IsVisible = viewName == "screenshots";
+            if (ViewCatalog != null) ViewCatalog.IsVisible = viewName == "catalog";
+            if (ViewSettings != null) ViewSettings.IsVisible = viewName == "settings";
+
+            UpdateNavButtonClasses(NavHomeBtn, viewName == "home");
+            UpdateNavButtonClasses(NavModpacksBtn, false);
+            UpdateNavButtonClasses(NavScreenshotsBtn, viewName == "screenshots");
+            UpdateNavButtonClasses(NavSettingsBtn, viewName == "settings");
+
+            if (PageHeaderTitle != null)
+            {
+                PageHeaderTitle.Text = viewName switch
+                {
+                    "home" => T("nav.home"),
+                    "catalog" => T("nav.modrinth"),
+                    "screenshots" => T("nav.screenshots"),
+                    "settings" => T("nav.settings"),
+                    _ => T("nav.home")
+                };
+            }
+
+            if (viewName == "screenshots")
+            {
+                LoadScreenshots();
+            }
+            else if (viewName == "catalog")
+            {
+                if (CatalogResultsListBox?.ItemsSource == null)
+                    PerformCatalogSearch();
+            }
+        }
+
+        private static void UpdateNavButtonClasses(Avalonia.Controls.Button? btn, bool active)
+        {
+            if (btn == null) return;
+            if (active)
+            {
+                if (!btn.Classes.Contains("active"))
+                    btn.Classes.Add("active");
+            }
+            else
+            {
+                btn.Classes.Remove("active");
+            }
+        }
+
+        private void NavHome_Click(object? sender, RoutedEventArgs e) => SwitchView("home");
+
+        private async void NavModpacks_Click(object? sender, RoutedEventArgs e)
+        {
+            var win = new ModpacksWindow(settings.MinecraftPath, currentLanguage, launcher);
+            var res = await win.ShowDialog<bool?>(this);
+            if (res == true && win.SelectedModpack != null)
+            {
+                settings.LastVersion = win.SelectedModpack.Id;
+                SaveSettings();
+                LoadVersions();
+            }
+            else
+            {
+                LoadVersions();
+            }
+        }
+
+        private void NavCatalog_Click(object? sender, RoutedEventArgs e) => SwitchView("catalog");
+        private void NavScreenshots_Click(object? sender, RoutedEventArgs e) => SwitchView("screenshots");
+        private void NavSettings_Click(object? sender, RoutedEventArgs e) => SwitchView("settings");
+        #endregion
+
+        #region Direct Connect & Server Ping
+        private void CbDirectConnect_Changed(object? sender, RoutedEventArgs e)
+        {
+            settings.DirectConnectServer = CbDirectConnect.IsChecked ?? false;
+            SaveSettings();
+        }
+
+        private async void PingServerBtn_Click(object? sender, RoutedEventArgs e)
+        {
+            string host = (DirectServerIpBox?.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(host))
+            {
+                ServerStatusText.Text = "Введите адрес сервера";
+                ServerStatusDot.Fill = Brush.Parse("#8E9297");
+                return;
+            }
+
+            int port = 25565;
+            if (host.Contains(':'))
+            {
+                var parts = host.Split(':');
+                host = parts[0];
+                if (parts.Length > 1 && int.TryParse(parts[1], out int p))
+                    port = p;
+            }
+
+            ServerStatusText.Text = "Проверка...";
+            ServerStatusDot.Fill = Brush.Parse("#F59E0B");
+
+            var result = await ServerPingService.PingAsync(host, port, 3500);
+            if (result.IsOnline)
+            {
+                ServerStatusDot.Fill = Brush.Parse("#10b981");
+                ServerStatusText.Text = T("server.status_online", result.OnlinePlayers, result.MaxPlayers, result.PingMs);
+            }
+            else
+            {
+                ServerStatusDot.Fill = Brush.Parse("#EF4444");
+                ServerStatusText.Text = T("server.status_offline");
+            }
+        }
+        #endregion
+
+        #region Screenshots Gallery
+        private List<ScreenshotItem> currentScreenshots = new List<ScreenshotItem>();
+        private CancellationTokenSource? _screenshotsCts;
+
+        private async void LoadScreenshots()
+        {
+            _screenshotsCts?.Cancel();
+            _screenshotsCts = new CancellationTokenSource();
+            var token = _screenshotsCts.Token;
+
+            string mcDir = string.IsNullOrWhiteSpace(settings.MinecraftPath)
+                ? PlatformHelper.GetDefaultMinecraftFolder()
+                : settings.MinecraftPath;
+
+            try
+            {
+                var list = await Task.Run(() => ScreenshotManager.GetScreenshots(mcDir), token);
+                if (token.IsCancellationRequested) return;
+
+                currentScreenshots = list;
+                ScreenshotsListBox.ItemsSource = null;
+                ScreenshotsListBox.ItemsSource = currentScreenshots;
+
+                _ = Task.Run(async () =>
+                {
+                    foreach (var item in list)
+                    {
+                        if (token.IsCancellationRequested) break;
+                        var bmp = ScreenshotManager.LoadThumbnail(item.FilePath, 220);
+                        if (bmp != null)
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() =>
+                            {
+                                if (!token.IsCancellationRequested)
+                                {
+                                    item.Thumbnail = bmp;
+                                }
+                            }, DispatcherPriority.Background);
+                        }
+                    }
+                }, token);
+            }
+            catch
+            {
+            }
+        }
+
+        private void ScreenshotsListBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            bool hasSelection = ScreenshotsListBox.SelectedItem != null;
+            if (CopyScreenshotBtn != null) CopyScreenshotBtn.IsEnabled = hasSelection;
+            if (DeleteScreenshotBtn != null) DeleteScreenshotBtn.IsEnabled = hasSelection;
+        }
+
+        private async void CopyScreenshot_Click(object? sender, RoutedEventArgs e)
+        {
+            if (ScreenshotsListBox.SelectedItem is ScreenshotItem item)
+            {
+                bool ok = await ScreenshotManager.CopyToClipboardAsync(this, item.FilePath);
+                if (ok)
+                {
+                    await RayMessageBox.ShowAsync(this, T("screenshots.copied"), T("screenshots.title"));
+                }
+            }
+        }
+
+        private async void DeleteScreenshot_Click(object? sender, RoutedEventArgs e)
+        {
+            if (ScreenshotsListBox.SelectedItem is ScreenshotItem item)
+            {
+                bool? confirm = await RayMessageBox.ShowConfirmAsync(this, $"Удалить скриншот {item.FileName}?", T("screenshots.title"));
+                if (confirm == true)
+                {
+                    bool deleted = ScreenshotManager.DeleteScreenshot(item.FilePath);
+                    if (deleted)
+                    {
+                        LoadScreenshots();
+                    }
+                }
+            }
+        }
+
+        private int viewerCurrentIndex = -1;
+
+        private void ScreenshotsListBox_DoubleTapped(object? sender, RoutedEventArgs e)
+        {
+            if (ScreenshotsListBox.SelectedItem is ScreenshotItem item && currentScreenshots != null)
+            {
+                int idx = currentScreenshots.IndexOf(item);
+                if (idx >= 0)
+                {
+                    OpenScreenshotViewer(idx);
+                }
+            }
+        }
+
+        private void OpenScreenshotViewer(int index)
+        {
+            if (currentScreenshots == null || currentScreenshots.Count == 0) return;
+            if (index < 0) index = 0;
+            if (index >= currentScreenshots.Count) index = currentScreenshots.Count - 1;
+
+            viewerCurrentIndex = index;
+            var item = currentScreenshots[index];
+
+            try
+            {
+                if (File.Exists(item.FilePath))
+                {
+                    ViewerBigImage.Source = new Bitmap(item.FilePath);
+                }
+            }
+            catch
+            {
+                ViewerBigImage.Source = item.Thumbnail;
+            }
+
+            ViewerFileNameText.Text = item.FileName;
+            ViewerCounterText.Text = $"{index + 1} / {currentScreenshots.Count}";
+            ScreenshotViewerOverlay.IsVisible = true;
+            ScreenshotViewerOverlay.Focus();
+        }
+
+        private void CloseScreenshotViewer_Click(object? sender, RoutedEventArgs e)
+        {
+            ScreenshotViewerOverlay.IsVisible = false;
+            ViewerBigImage.Source = null;
+        }
+
+        private void ViewerPrev_Click(object? sender, RoutedEventArgs e)
+        {
+            if (currentScreenshots == null || currentScreenshots.Count == 0) return;
+            int newIndex = viewerCurrentIndex - 1;
+            if (newIndex < 0) newIndex = currentScreenshots.Count - 1;
+            OpenScreenshotViewer(newIndex);
+        }
+
+        private void ViewerNext_Click(object? sender, RoutedEventArgs e)
+        {
+            if (currentScreenshots == null || currentScreenshots.Count == 0) return;
+            int newIndex = viewerCurrentIndex + 1;
+            if (newIndex >= currentScreenshots.Count) newIndex = 0;
+            OpenScreenshotViewer(newIndex);
+        }
+
+        private void ScreenshotViewer_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                CloseScreenshotViewer_Click(sender, e);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Left)
+            {
+                ViewerPrev_Click(sender, e);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Right)
+            {
+                ViewerNext_Click(sender, e);
+                e.Handled = true;
+            }
+        }
+
+        private async void CopyCurrentViewerScreenshot_Click(object? sender, RoutedEventArgs e)
+        {
+            if (currentScreenshots != null && viewerCurrentIndex >= 0 && viewerCurrentIndex < currentScreenshots.Count)
+            {
+                var item = currentScreenshots[viewerCurrentIndex];
+                bool ok = await ScreenshotManager.CopyToClipboardAsync(this, item.FilePath);
+                if (ok)
+                {
+                    await RayMessageBox.ShowAsync(this, T("screenshots.copied"), T("screenshots.title"));
+                }
+            }
+        }
+        #endregion
+
+        #region Modrinth Catalog
+        private void CatalogSearchBox_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                PerformCatalogSearch();
+            }
+        }
+
+        private void CatalogTypeBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (!suppressOptionEvents && ViewCatalog != null && ViewCatalog.IsVisible)
+            {
+                PerformCatalogSearch();
+            }
+        }
+
+        private void CatalogSearch_Click(object? sender, RoutedEventArgs e)
+        {
+            PerformCatalogSearch();
+        }
+
+        private async void PerformCatalogSearch()
+        {
+            if (CatalogStatusText == null) return;
+            CatalogStatusText.Text = "Поиск в Modrinth...";
+
+            string query = CatalogSearchBox?.Text?.Trim() ?? "";
+            string type = "mod";
+            if (CatalogTypeBox?.SelectedItem is ComboBoxItem cbi && cbi.Tag is string t)
+                type = t;
+
+            string? gameVersion = null;
+            if (VersionBox?.SelectedItem is ComboBoxItem verItem && verItem.Tag is string ver)
+                gameVersion = ver;
+
+            var items = await ModrinthCatalogService.SearchAsync(query, type, gameVersion);
+            CatalogResultsListBox.ItemsSource = items;
+
+            if (items.Count == 0)
+                CatalogStatusText.Text = "Ничего не найдено.";
+            else
+                CatalogStatusText.Text = $"Найдено: {items.Count}";
+        }
+
+        private async void InstallCatalogItem_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is Avalonia.Controls.Button btn && btn.Tag is string projectId)
+            {
+                btn.IsEnabled = false;
+                string origContent = btn.Content?.ToString() ?? "Скачать";
+                btn.Content = "⏳";
+
+                string mcDir = string.IsNullOrWhiteSpace(settings.MinecraftPath)
+                    ? PlatformHelper.GetDefaultMinecraftFolder()
+                    : settings.MinecraftPath;
+
+                string? gameVer = null;
+                if (VersionBox?.SelectedItem is ComboBoxItem verItem && verItem.Tag is string ver)
+                    gameVer = ver;
+
+                bool ok = await ModrinthCatalogService.InstallProjectAsync(projectId, mcDir, gameVer, status =>
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (CatalogStatusText != null) CatalogStatusText.Text = status;
+                    });
+                });
+
+                if (ok)
+                {
+                    btn.Content = "✓";
+                    await RayMessageBox.ShowAsync(this, "Успешно установлено в вашу папку игры!", "Modrinth");
+                }
+                else
+                {
+                    btn.Content = origContent;
+                    btn.IsEnabled = true;
+                }
+            }
+        }
+        #endregion
+
+        #region Window Controls
+        private void MinimizeBtn_Click(object? sender, RoutedEventArgs e)
+        {
+            this.WindowState = WindowState.Minimized;
+        }
+
+        private void MaximizeBtn_Click(object? sender, RoutedEventArgs e)
+        {
+            this.WindowState = this.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            UpdateMaximizeIcon();
+        }
+
+        private void UpdateMaximizeIcon()
+        {
+            bool isMax = this.WindowState == WindowState.Maximized;
+            if (RootWindowBorder != null)
+            {
+                RootWindowBorder.CornerRadius = isMax ? new CornerRadius(0) : new CornerRadius(16);
+                RootWindowBorder.BorderThickness = isMax ? new Thickness(0) : new Thickness(1);
+            }
+
+            if (MaximizeBtnIcon != null)
+            {
+                string resKey = isMax ? "IconWinRestore" : "IconWinMax";
+                if (this.Resources.TryGetResource(resKey, null, out object? geom) && geom is Avalonia.Media.Geometry g)
+                {
+                    MaximizeBtnIcon.Data = g;
+                }
+            }
+
+            if (MaximizeBtn != null)
+            {
+                ToolTip.SetTip(MaximizeBtn, isMax ? "Восстановить" : "Развернуть");
+            }
+        }
+        #endregion
+
+        #region Recent Game Launches
+        private void RecordRecentLaunch(string versionId)
+        {
+            try
+            {
+                string accountName = (AccountSelector?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Player";
+                accountName = NormalizeNickname(accountName);
+
+                if (settings.RecentLaunches == null)
+                    settings.RecentLaunches = new List<RecentGameLaunch>();
+
+                settings.RecentLaunches.RemoveAll(r => string.Equals(r.VersionId, versionId, StringComparison.OrdinalIgnoreCase));
+                settings.RecentLaunches.Insert(0, new RecentGameLaunch
+                {
+                    VersionId = versionId,
+                    AccountName = accountName,
+                    LastPlayed = DateTime.Now
+                });
+
+                if (settings.RecentLaunches.Count > 6)
+                    settings.RecentLaunches = settings.RecentLaunches.Take(6).ToList();
+
+                SaveSettings();
+                RefreshRecentLaunches();
+            }
+            catch
+            {
+            }
+        }
+
+        private void RefreshRecentLaunches()
+        {
+            try
+            {
+                var list = settings.RecentLaunches ?? new List<RecentGameLaunch>();
+                if (RecentLaunchesList != null)
+                {
+                    RecentLaunchesList.ItemsSource = null;
+                    RecentLaunchesList.ItemsSource = list;
+                }
+                if (RecentEmptyText != null)
+                {
+                    RecentEmptyText.IsVisible = list.Count == 0;
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void QuickLaunchRecent_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is Avalonia.Controls.Button btn && btn.Tag is string versionId)
+            {
+                foreach (var rawItem in VersionBox.Items)
+                {
+                    if (rawItem is ComboBoxItem item && string.Equals(item.Tag?.ToString(), versionId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        VersionBox.SelectedItem = item;
+                        LaunchBtn_Click(LaunchBtn, new RoutedEventArgs());
+                        return;
+                    }
+                }
+            }
+        }
+        #endregion
+
         private void CloseBtn_Click(object? sender, RoutedEventArgs e) => ShutdownApp();
-        private void SettingsBtn_Click(object? sender, RoutedEventArgs e) => SettingsModal.IsVisible = true;
+        private void SettingsBtn_Click(object? sender, RoutedEventArgs e) => SwitchView("settings");
         private void Refresh_Click(object? sender, RoutedEventArgs e) => LoadVersions();
         private void CloseServerModal_Click(object? sender, RoutedEventArgs e) => ServerModal.IsVisible = false;
-        private void CloseSettings_Click(object? sender, RoutedEventArgs e) => SettingsModal.IsVisible = false;
+        private void CloseSettings_Click(object? sender, RoutedEventArgs e) => SwitchView("home");
 
         private async void SelectPath_Click(object? sender, RoutedEventArgs e)
         {

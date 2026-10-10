@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Raytolfas
+﻿// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -58,10 +58,20 @@ namespace RaytolfasLauncher
             Title = T("modpacks.window_title");
             HeaderTitleText.Text = T("modpacks.header_title");
             HeaderSubtitleText.Text = T("modpacks.header_subtitle");
+            HeaderSubtitleText.IsVisible = !string.IsNullOrWhiteSpace(HeaderSubtitleText.Text);
             YourPacksLabel.Text = T("modpacks.your_packs");
-            CreatePackButton.Content = T("modpacks.btn_create");
+
+            if (CreatePackText != null)
+                CreatePackText.Text = T("modpacks.btn_create");
+            else
+                CreatePackButton.Content = T("modpacks.btn_create");
+
             ImportMrPackButton.Content = T("modpacks.btn_import");
-            DeletePackButton.Content = T("modpacks.btn_delete");
+
+            if (DeletePackText != null)
+                DeletePackText.Text = T("modpacks.btn_delete");
+            else
+                DeletePackButton.Content = T("modpacks.btn_delete");
 
             NoSelectionTitle.Text = T("modpacks.no_sel_title");
             NoSelectionSubtitle.Text = T("modpacks.no_sel_desc");
@@ -243,10 +253,10 @@ namespace RaytolfasLauncher
 
         private void ShowInstalledTab_Click(object? sender, RoutedEventArgs e)
         {
-            TabInstalledBtn.Background = Brush.Parse("#BB86FC");
-            TabInstalledBtn.Foreground = Brushes.Black;
-            TabModrinthBtn.Background = Brush.Parse("#252525");
-            TabModrinthBtn.Foreground = Brushes.White;
+            TabInstalledBtn.Background = Brush.Parse("#A250FF");
+            TabInstalledBtn.Foreground = Brushes.White;
+            TabModrinthBtn.Background = Brushes.Transparent;
+            TabModrinthBtn.Foreground = Brush.Parse("#8E9297");
 
             InstalledTabPanel.IsVisible = true;
             ModrinthTabPanel.IsVisible = false;
@@ -255,10 +265,10 @@ namespace RaytolfasLauncher
 
         private void ShowModrinthTab_Click(object? sender, RoutedEventArgs e)
         {
-            TabInstalledBtn.Background = Brush.Parse("#252525");
-            TabInstalledBtn.Foreground = Brushes.White;
-            TabModrinthBtn.Background = Brush.Parse("#BB86FC");
-            TabModrinthBtn.Foreground = Brushes.Black;
+            TabInstalledBtn.Background = Brushes.Transparent;
+            TabInstalledBtn.Foreground = Brush.Parse("#8E9297");
+            TabModrinthBtn.Background = Brush.Parse("#A250FF");
+            TabModrinthBtn.Foreground = Brushes.White;
 
             InstalledTabPanel.IsVisible = false;
             ModrinthTabPanel.IsVisible = true;
@@ -315,14 +325,14 @@ namespace RaytolfasLauncher
             {
                 installedFilter = tag;
 
-                FilterAllBtn.Background = tag == "all" ? Brush.Parse("#BB86FC") : Brush.Parse("#252525");
-                FilterAllBtn.Foreground = tag == "all" ? Brushes.Black : Brushes.White;
-                FilterModsBtn.Background = tag == "mods" ? Brush.Parse("#BB86FC") : Brush.Parse("#252525");
-                FilterModsBtn.Foreground = tag == "mods" ? Brushes.Black : Brushes.White;
-                FilterPacksBtn.Background = tag == "resourcepacks" ? Brush.Parse("#BB86FC") : Brush.Parse("#252525");
-                FilterPacksBtn.Foreground = tag == "resourcepacks" ? Brushes.Black : Brushes.White;
-                FilterShadersBtn.Background = tag == "shaderpacks" ? Brush.Parse("#BB86FC") : Brush.Parse("#252525");
-                FilterShadersBtn.Foreground = tag == "shaderpacks" ? Brushes.Black : Brushes.White;
+                FilterAllBtn.Background = tag == "all" ? Brush.Parse("#A250FF") : Brush.Parse("#252525");
+                FilterAllBtn.Foreground = tag == "all" ? Brushes.White : Brushes.White;
+                FilterModsBtn.Background = tag == "mods" ? Brush.Parse("#A250FF") : Brush.Parse("#252525");
+                FilterModsBtn.Foreground = tag == "mods" ? Brushes.White : Brushes.White;
+                FilterPacksBtn.Background = tag == "resourcepacks" ? Brush.Parse("#A250FF") : Brush.Parse("#252525");
+                FilterPacksBtn.Foreground = tag == "resourcepacks" ? Brushes.White : Brushes.White;
+                FilterShadersBtn.Background = tag == "shaderpacks" ? Brush.Parse("#A250FF") : Brush.Parse("#252525");
+                FilterShadersBtn.Foreground = tag == "shaderpacks" ? Brushes.White : Brushes.White;
 
                 RefreshInstalledFiles();
             }
@@ -381,6 +391,14 @@ namespace RaytolfasLauncher
 
                 ModrinthResultsListBox.ItemsSource = hits;
                 SetStatus(T("modpacks.found_results", hits.Count));
+
+                _ = Task.Run(async () =>
+                {
+                    foreach (var hit in hits)
+                    {
+                        await ModrinthIconHelper.LoadIconAsync(hit, minecraftPath);
+                    }
+                });
             }
             catch (Exception ex)
             {

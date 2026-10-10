@@ -1,8 +1,7 @@
-<Styles xmlns="https://github.com/avaloniaui"
+﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Context Menu Style -->
-    <Style Selector="ContextMenu.RayMenu">
+        <Style Selector="ContextMenu.RayMenu">
         <Setter Property="Background" Value="#1E1E1E"/>
         <Setter Property="BorderBrush" Value="#3A3A3A"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -29,8 +28,7 @@
         <Setter Property="Margin" Value="10,4"/>
     </Style>
 
-    <!-- Custom Ray CheckBox Style -->
-    <Style Selector="CheckBox.RayCheck">
+        <Style Selector="CheckBox.RayCheck">
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="FontSize" Value="12"/>
     </Style>
@@ -50,54 +48,170 @@
 
     <Style Selector="CheckBox.RayCheck:checked /template/ Border#NormalRectangle">
         <Setter Property="Background" Value="#2D2D2D"/>
-        <Setter Property="BorderBrush" Value="#BB86FC"/>
+        <Setter Property="BorderBrush" Value="#A250FF"/>
     </Style>
 
     <Style Selector="CheckBox.RayCheck:checked /template/ Path#CheckGlyph">
-        <Setter Property="Fill" Value="#BB86FC"/>
+        <Setter Property="Fill" Value="#A250FF"/>
     </Style>
 
-    <!-- Custom Ray ComboBox Style -->
-    <Style Selector="ComboBox.RayCombo">
+        <Style Selector="ComboBox.RayCombo">
         <Setter Property="Foreground" Value="White"/>
-        <Setter Property="Background" Value="#2A2A2A"/>
-        <Setter Property="BorderBrush" Value="#403A35"/>
+        <Setter Property="Background" Value="#161822"/>
+        <Setter Property="BorderBrush" Value="#252A38"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="Height" Value="36"/>
-        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Padding" Value="14,6"/>
     </Style>
 
     <Style Selector="ComboBox.RayCombo:pointerover /template/ Border#Background">
-        <Setter Property="BorderBrush" Value="#6A4D86"/>
+        <Setter Property="Background" Value="#1C202E"/>
+        <Setter Property="BorderBrush" Value="#383E54"/>
     </Style>
 
     <Style Selector="ComboBox.RayCombo:focus /template/ Border#Background">
-        <Setter Property="BorderBrush" Value="#BB86FC"/>
+        <Setter Property="BorderBrush" Value="#A250FF"/>
     </Style>
 
     <Style Selector="ComboBox.RayCombo ComboBoxItem">
-        <Setter Property="Foreground" Value="#BB86FC"/>
-        <Setter Property="Background" Value="#1E1E1E"/>
-        <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="Foreground" Value="#DDE0EC"/>
+        <Setter Property="Background" Value="#141620"/>
+        <Setter Property="Padding" Value="12,8"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="Margin" Value="4,2"/>
     </Style>
 
     <Style Selector="ComboBox.RayCombo ComboBoxItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#32263D"/>
+        <Setter Property="Background" Value="#251F36"/>
         <Setter Property="Foreground" Value="White"/>
     </Style>
 
     <Style Selector="ComboBox.RayCombo ComboBoxItem:selected /template/ ContentPresenter">
-        <Setter Property="Background" Value="#4B2A69"/>
+        <Setter Property="Background" Value="#4B247E"/>
         <Setter Property="Foreground" Value="White"/>
     </Style>
 
-    <!-- Slider Style for RAM -->
-    <Style Selector="Slider">
-        <Setter Property="Foreground" Value="#BB86FC"/>
+        <Style Selector="Slider">
+        <Setter Property="Foreground" Value="#A250FF"/>
+    </Style>
+
+        <Style Selector="Button.NavBtn">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="Width" Value="44"/>
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+
+    <Style Selector="Button.NavBtn Path">
+        <Setter Property="Stroke" Value="White"/>
+    </Style>
+
+    <Style Selector="Button.NavBtn:pointerover">
+        <Setter Property="Background" Value="#23272F"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+
+    <Style Selector="Button.NavBtn:pointerover PathIcon">
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+
+    <Style Selector="Button.NavBtn:pointerover Path">
+        <Setter Property="Stroke" Value="White"/>
+    </Style>
+
+    <Style Selector="Button.NavBtn.active">
+        <Setter Property="Background" Value="#2B1A40"/>
+        <Setter Property="Foreground" Value="#A250FF"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+
+    <Style Selector="Button.NavBtn.active PathIcon">
+        <Setter Property="Foreground" Value="#A250FF"/>
+    </Style>
+
+    <Style Selector="Button.NavBtn.active Path">
+        <Setter Property="Stroke" Value="#A250FF"/>
+    </Style>
+
+        <Style Selector="Button.WinActionBtn">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Button.WinActionBtn Path">
+        <Setter Property="Stroke" Value="White"/>
+    </Style>
+
+    <Style Selector="Button.WinActionBtn:pointerover">
+        <Setter Property="Background" Value="#23272F"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+
+    <Style Selector="Button.WinActionBtn:pointerover PathIcon">
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+
+    <Style Selector="Button.WinActionBtn:pointerover Path">
+        <Setter Property="Stroke" Value="White"/>
+    </Style>
+
+    <Style Selector="Button.WinCloseBtn">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="#8E9297"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Button.WinCloseBtn:pointerover">
+        <Setter Property="Background" Value="#E81123"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+
+    <Style Selector="Button.WinCloseBtn:pointerover PathIcon">
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+
+        <Style Selector="Button">
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+        <Style Selector="MenuFlyoutPresenter">
+        <Setter Property="Background" Value="#161822"/>
+        <Setter Property="BorderBrush" Value="#252A38"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="4"/>
+    </Style>
+    <Style Selector="MenuItem">
+        <Setter Property="Foreground" Value="#DDE0EC"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="12,8"/>
+    </Style>
+    <Style Selector="MenuItem:pointerover /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="Background" Value="#251F36"/>
+        <Setter Property="Foreground" Value="White"/>
     </Style>
 
 </Styles>

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Raytolfas
+﻿// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -45,10 +45,10 @@ namespace RaytolfasLauncher
         {
             Title = T("account.window_title");
             AccountsTitleText.Text = T("account.title");
-            DeleteAccountButton.Content = T("account.delete");
-            AddOfflineButton.Content = T("account.add_offline");
-            AddMicrosoftButton.Content = T("account.add_microsoft");
-            AddElyByButton.Content = T("account.add_elyby");
+            DeleteAccountText.Text = T("account.delete");
+            AddOfflineText.Text = T("account.add_offline").TrimStart('+', ' ');
+            AddMicrosoftText.Text = T("account.add_microsoft").TrimStart('+', ' ');
+            AddElyByText.Text = T("account.add_elyby").TrimStart('+', ' ');
             UseAccountButton.Content = T("account.use");
             CancelButton.Content = T("account.cancel");
         }
@@ -76,25 +76,34 @@ namespace RaytolfasLauncher
         {
             try
             {
-                string url = $"https://minotar.net/avatar/{acc.Username}/24";
-                var bytes = await httpClient.GetByteArrayAsync(url);
-                using var stream = new MemoryStream(bytes);
-                acc.AvatarBitmap = new Bitmap(stream);
-                AccountsListBox.ItemsSource = null;
-                AccountsListBox.ItemsSource = settings.Accounts;
-            }
-            catch
-            {
-                try
+                var bmp = await SkinAvatarHelper.GetAvatarAsync(
+                    acc.Username,
+                    PlatformHelper.GetDefaultSettingsFolder(),
+                    acc.Type,
+                    acc.UUID,
+                    settings.EnableElyBySkins);
+
+                if (bmp != null)
                 {
-                    var uri = new Uri("avares://RaytolfasLauncher/Assets/no_internet.png");
-                    if (AssetLoader.Exists(uri))
-                    {
-                        acc.AvatarBitmap = new Bitmap(AssetLoader.Open(uri));
-                    }
+                    acc.AvatarBitmap = bmp;
+                    AccountsListBox.ItemsSource = null;
+                    AccountsListBox.ItemsSource = settings.Accounts;
+                    return;
                 }
-                catch { }
             }
+            catch { }
+
+            try
+            {
+                var uri = new Uri("avares://RaytolfasLauncher/Assets/no_internet.png");
+                if (AssetLoader.Exists(uri))
+                {
+                    acc.AvatarBitmap = new Bitmap(AssetLoader.Open(uri));
+                    AccountsListBox.ItemsSource = null;
+                    AccountsListBox.ItemsSource = settings.Accounts;
+                }
+            }
+            catch { }
         }
 
         private async void AddOffline_Click(object? sender, RoutedEventArgs e)

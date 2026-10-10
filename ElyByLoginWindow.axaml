@@ -1,8 +1,8 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="RaytolfasLauncher.ElyByLoginWindow"
         Title="Ely.by"
-        Height="340"
+        Height="360"
         Width="420"
         Background="Transparent"
         WindowStartupLocation="CenterOwner"
@@ -10,35 +10,34 @@
         TransparencyLevelHint="Transparent"
         CanResize="False">
 
-    <Border BorderBrush="#1A1A1A" BorderThickness="1" CornerRadius="20" Background="#121212">
-        <Grid Margin="20" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
-            <TextBlock x:Name="TitleText"
-                       Text="ELY.BY"
-                       Foreground="#BB86FC"
-                       FontSize="20"
-                       FontWeight="Bold"
-                       Margin="0,0,0,16"/>
+    <Border BorderBrush="#202430" BorderThickness="1" CornerRadius="18" Background="#101217" Padding="20">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="🦋" FontSize="16" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TitleText" Text="Вход в Ely.by" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button Grid.Column="1" Click="Cancel_Click" Width="28" Height="28" CornerRadius="6" Background="Transparent" BorderThickness="0" Cursor="Hand" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <PathIcon Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" Width="12" Height="12" Foreground="#8E9297"/>
+                </Button>
+            </Grid>
 
-            <TextBlock x:Name="LoginLabel" Grid.Row="1" Text="ЛОГИН ИЛИ E-MAIL" Foreground="Gray" FontSize="10" Margin="0,0,0,6"/>
-            <TextBox x:Name="LoginBox" Grid.Row="2" Background="#2D2D2D" Foreground="White" BorderThickness="0" CornerRadius="8" Padding="10"/>
+            <TextBlock x:Name="LoginLabel" Grid.Row="1" Text="ЛОГИН ИЛИ E-MAIL" Foreground="#8E9297" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+            <TextBox x:Name="LoginBox" Grid.Row="2" Background="#161822" Foreground="White" BorderBrush="#252A38" BorderThickness="1" CornerRadius="8" Padding="12,8"/>
 
-            <StackPanel Grid.Row="3" Margin="0,12,0,0">
-                <TextBlock x:Name="PasswordLabel" Text="ПАРОЛЬ" Foreground="Gray" FontSize="10" Margin="0,0,0,6"/>
-                <TextBox x:Name="PasswordBox" PasswordChar="•" Background="#2D2D2D" Foreground="White" BorderThickness="0" CornerRadius="8" Padding="10"/>
-                <TextBlock x:Name="TotpLabel" Text="2FA TOKEN (НЕОБЯЗАТЕЛЬНО)" Foreground="Gray" FontSize="10" Margin="0,12,0,6"/>
-                <TextBox x:Name="TotpBox" Background="#2D2D2D" Foreground="White" BorderThickness="0" CornerRadius="8" Padding="10"/>
+            <StackPanel Grid.Row="3" Margin="0,12,0,0" Spacing="6">
+                <TextBlock x:Name="PasswordLabel" Text="ПАРОЛЬ" Foreground="#8E9297" FontSize="10" FontWeight="Bold"/>
+                <TextBox x:Name="PasswordBox" PasswordChar="•" Background="#161822" Foreground="White" BorderBrush="#252A38" BorderThickness="1" CornerRadius="8" Padding="12,8"/>
+
+                <TextBlock x:Name="TotpLabel" Text="2FA ТОКЕН (НЕОБЯЗАТЕЛЬНО)" Foreground="#8E9297" FontSize="10" FontWeight="Bold" Margin="0,6,0,0"/>
+                <TextBox x:Name="TotpBox" Background="#161822" Foreground="White" BorderBrush="#252A38" BorderThickness="1" CornerRadius="8" Padding="12,8"/>
             </StackPanel>
 
-            <TextBlock x:Name="HintText"
-                       Grid.Row="4"
-                       Text="Если у тебя включена двухфакторная защита, введи код в поле 2FA."
-                       Foreground="Gray"
-                       TextWrapping="Wrap"
-                       Margin="0,14,0,0"/>
+            <TextBlock x:Name="HintText" Grid.Row="4" Text="Если у вас включена 2FA, укажите 6-значный код из приложения аутентификации." Foreground="#60646C" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0" VerticalAlignment="Center"/>
 
-            <Grid Grid.Row="5" Margin="0,18,0,0" ColumnDefinitions="*,*">
-                <Button x:Name="CancelButton" Grid.Column="0" Content="ОТМЕНА" Click="Cancel_Click" Height="42" Margin="0,0,6,0" Background="#2D2D2D" Foreground="White" BorderThickness="0" CornerRadius="10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-                <Button x:Name="LoginButton" Grid.Column="1" Content="ВОЙТИ" Click="Login_Click" Height="42" Margin="6,0,0,0" Background="#BB86FC" Foreground="Black" FontWeight="Bold" BorderThickness="0" CornerRadius="10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+            <Grid Grid.Row="5" Margin="0,14,0,0" ColumnDefinitions="*,*">
+                <Button x:Name="CancelButton" Grid.Column="0" Content="ОТМЕНА" Click="Cancel_Click" Height="38" Margin="0,0,6,0" Background="#1E2028" Foreground="White" FontSize="11" FontWeight="SemiBold" BorderThickness="0" CornerRadius="8" Cursor="Hand" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                <Button x:Name="LoginButton" Grid.Column="1" Content="ВОЙТИ" Click="Login_Click" Height="38" Margin="6,0,0,0" Background="#A250FF" Foreground="White" FontSize="11" FontWeight="Bold" BorderThickness="0" CornerRadius="8" Cursor="Hand" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
             </Grid>
         </Grid>
     </Border>
