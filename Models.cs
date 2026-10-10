@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Raytolfas
+﻿// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 //
 // Raytolfas Launcher is free software: you can redistribute it and/or modify
@@ -17,8 +17,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Avalonia.Media.Imaging;
 
 namespace RaytolfasLauncher
 {
@@ -68,6 +70,9 @@ namespace RaytolfasLauncher
         public bool EnableElyBySkins { get; set; } = false;
         public string Language { get; set; } = LocalizationManager.DefaultLanguage;
         public string CustomBackgroundPath { get; set; } = "";
+        public bool DirectConnectServer { get; set; } = false;
+        public string DirectServerAddress { get; set; } = "";
+        public List<RecentGameLaunch> RecentLaunches { get; set; } = new List<RecentGameLaunch>();
 
         public void Save()
         {
@@ -81,6 +86,14 @@ namespace RaytolfasLauncher
             {
             }
         }
+    }
+
+    public class RecentGameLaunch
+    {
+        public string VersionId { get; set; } = "";
+        public string AccountName { get; set; } = "";
+        public DateTime LastPlayed { get; set; } = DateTime.Now;
+        public string FormattedDate => LastPlayed.ToString("dd.MM.yyyy HH:mm");
     }
 
     public class LoaderInstallOption
@@ -120,7 +133,7 @@ namespace RaytolfasLauncher
         public List<ModrinthProjectHit> Hits { get; set; } = new List<ModrinthProjectHit>();
     }
 
-    public class ModrinthProjectHit
+    public class ModrinthProjectHit : INotifyPropertyChanged
     {
         [JsonPropertyName("project_id")]
         public string ProjectId { get; set; } = "";
@@ -139,6 +152,23 @@ namespace RaytolfasLauncher
 
         [JsonPropertyName("icon_url")]
         public string? IconUrl { get; set; }
+
+        private Bitmap? _iconBitmap;
+        [JsonIgnore]
+        public Bitmap? IconBitmap
+        {
+            get => _iconBitmap;
+            set
+            {
+                if (_iconBitmap != value)
+                {
+                    _iconBitmap = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IconBitmap)));
+                }
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         [JsonPropertyName("downloads")]
         public int Downloads { get; set; }

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Raytolfas
+﻿// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -411,7 +411,7 @@ namespace RaytolfasLauncher
             string loader = "")
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.4.1");
+            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.5");
 
             var facetsList = new List<string>();
 
@@ -451,7 +451,7 @@ namespace RaytolfasLauncher
             CancellationToken ct = default)
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.4.1");
+            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.5");
 
             string versionsUrl = $"https://api.modrinth.com/v2/project/{projectId}/version";
             var queryParts = new List<string>();

@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Raytolfas
+﻿// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using Avalonia.Controls;

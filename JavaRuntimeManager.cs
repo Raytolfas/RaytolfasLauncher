@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Raytolfas
+﻿// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -40,7 +40,7 @@ namespace RaytolfasLauncher
 
         static JavaRuntimeManager()
         {
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.4.1");
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.5");
         }
 
         public static int GetRequiredJavaMajorVersion(string? versionId, IVersion? version = null)
@@ -56,7 +56,6 @@ namespace RaytolfasLauncher
 
             string v = versionId.Trim();
 
-            // Snapshot formats: e.g. 24w14a or 21w19a
             var snapshotMatch = Regex.Match(v, @"^(\d{2})w(\d{2})[a-z]$", RegexOptions.IgnoreCase);
             if (snapshotMatch.Success)
             {
@@ -69,7 +68,6 @@ namespace RaytolfasLauncher
                 return 8;
             }
 
-            // Semantic versions: e.g. 1.21.1, 1.20.4, 1.16.5
             var match = Regex.Match(v, @"^(\d+)\.(\d+)(?:\.(\d+))?");
             if (match.Success)
             {
@@ -112,7 +110,6 @@ namespace RaytolfasLauncher
             string arch = "unknown";
             string fullVersion = "";
 
-            // 1. Try reading from release file if available
             string? releaseVersion = TryReadReleaseFile(resolvedPath, "JAVA_VERSION");
             string? releaseArch = TryReadReleaseFile(resolvedPath, "OS_ARCH");
 
@@ -131,7 +128,6 @@ namespace RaytolfasLauncher
                     is64Bit = false;
             }
 
-            // 2. If version or arch is not determined, run java -version
             if (majorVersion == null || arch == "unknown")
             {
                 var cmdResult = ProbeJavaProcess(resolvedPath);
@@ -296,27 +292,23 @@ namespace RaytolfasLauncher
                 .Select(p => DetectJavaInfo(p))
                 .ToList();
 
-            // 1. Exact major match + 64-bit
             var exact64 = detected
                 .Where(j => j.MajorVersion == requiredMajor && j.Is64Bit)
                 .OrderByDescending(j => j.Path.Contains(".minecraft", StringComparison.OrdinalIgnoreCase) || j.Path.Contains("runtime", StringComparison.OrdinalIgnoreCase))
                 .FirstOrDefault();
             if (exact64 != null) return exact64.Path;
 
-            // 2. Compatible match + 64-bit
             var comp64 = detected
                 .Where(j => IsJavaCompatible(j.MajorVersion, requiredMajor) && j.Is64Bit)
                 .OrderBy(j => Math.Abs((j.MajorVersion ?? 0) - requiredMajor))
                 .FirstOrDefault();
             if (comp64 != null) return comp64.Path;
 
-            // 3. Exact major match (even if 32-bit)
             var exactAny = detected
                 .Where(j => j.MajorVersion == requiredMajor)
                 .FirstOrDefault();
             if (exactAny != null) return exactAny.Path;
 
-            // 4. Any compatible match
             var compAny = detected
                 .Where(j => IsJavaCompatible(j.MajorVersion, requiredMajor))
                 .OrderBy(j => Math.Abs((j.MajorVersion ?? 0) - requiredMajor))
@@ -338,7 +330,6 @@ namespace RaytolfasLauncher
             string runtimeRootDir = Path.Combine(minecraftPath, "runtime", $"adoptium-java-{requiredMajor}-{arch}");
             Directory.CreateDirectory(runtimeRootDir);
 
-            // Check if already downloaded
             string? existingExecutable = FindJavaExecutableInDirectory(runtimeRootDir);
             if (!string.IsNullOrWhiteSpace(existingExecutable) && File.Exists(existingExecutable))
             {
@@ -350,7 +341,6 @@ namespace RaytolfasLauncher
                 }
             }
 
-            // Adoptium download URL
             string downloadUrl = $"https://api.adoptium.net/v3/binary/latest/{requiredMajor}/ga/{os}/{arch}/jre/hotspot/normal/adoptium";
             string tempArchiveFile = Path.Combine(runtimeRootDir, PlatformHelper.IsWindows ? "runtime.zip" : "runtime.tar.gz");
 
@@ -377,7 +367,6 @@ namespace RaytolfasLauncher
                 }
             }
 
-            // Extract archive
             if (PlatformHelper.IsWindows)
             {
                 ZipFile.ExtractToDirectory(tempArchiveFile, runtimeRootDir, overwriteFiles: true);
@@ -401,7 +390,6 @@ namespace RaytolfasLauncher
 
             PlatformHelper.SetExecutablePermission(newExecutable);
 
-            // Also mark all files in bin directory as executable on Unix
             if (!PlatformHelper.IsWindows)
             {
                 string? binDir = Path.GetDirectoryName(newExecutable);
@@ -424,14 +412,12 @@ namespace RaytolfasLauncher
             string targetName = PlatformHelper.IsWindows ? "javaw.exe" : "java";
             string altName = PlatformHelper.IsWindows ? "java.exe" : "java";
 
-            // Direct check in bin/
             string directBin = Path.Combine(directory, "bin", targetName);
             if (File.Exists(directBin)) return directBin;
 
             string directAlt = Path.Combine(directory, "bin", altName);
             if (File.Exists(directAlt)) return directAlt;
 
-            // Search in subdirectories (Adoptium archive creates a root dir like jdk-21.0.2+13-jre)
             try
             {
                 foreach (var file in Directory.EnumerateFiles(directory, targetName, SearchOption.AllDirectories))

@@ -1,10 +1,10 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:RaytolfasLauncher"
         x:Class="RaytolfasLauncher.LogWindow"
         Title="Логи запуска"
-        Height="480"
-        Width="760"
+        Height="500"
+        Width="780"
         Background="Transparent"
         WindowStartupLocation="CenterScreen"
         SystemDecorations="None"
@@ -12,35 +12,37 @@
         PointerPressed="Window_PointerPressed"
         CanResize="True">
 
-    <Border BorderBrush="#1A1A1A" BorderThickness="1" CornerRadius="14" Background="#161616">
-        <Grid Margin="14" RowDefinitions="Auto,Auto,*,Auto">
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                <TextBlock x:Name="LogTitleText" Text="ЛОГИ ЗАПУСКА" Foreground="White" FontSize="18" FontWeight="Bold"/>
+    <Border BorderBrush="#202430" BorderThickness="1" CornerRadius="16" Background="#101217" Padding="16">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,0,0,8">
+                <TextBlock x:Name="LogTitleText" Text="ЛОГИ ЗАПУСКА" Foreground="White" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
                 <Border Grid.Column="1"
                         x:Name="BetaBadgeBorder"
-                        Background="#CF8B1D"
-                        CornerRadius="8"
-                        Margin="10,2,0,0"
-                        Padding="8,3"
+                        Background="#2B1A40"
+                        CornerRadius="6"
+                        Margin="10,0,0,0"
+                        Padding="8,2"
                         VerticalAlignment="Center">
-                    <TextBlock x:Name="BetaBadgeText" Text="BETA" Foreground="Black" FontWeight="Bold" FontSize="10"/>
+                    <TextBlock x:Name="BetaBadgeText" Text="LOGS" Foreground="#A250FF" FontWeight="Bold" FontSize="10"/>
                 </Border>
-                <Button Grid.Column="3" Content="✕" Click="Close_Click" Background="Transparent" Foreground="Gray" BorderThickness="0" Width="28" Height="28" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand"/>
+                <Button Grid.Column="3" Click="Close_Click" Width="28" Height="28" CornerRadius="6" Background="Transparent" BorderThickness="0" Cursor="Hand" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <PathIcon Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" Width="12" Height="12" Foreground="#8E9297"/>
+                </Button>
             </Grid>
 
             <TextBlock x:Name="LogDescriptionText"
                        Grid.Row="1"
-                       Text="Отображение логов Minecraft (бета-функция)"
-                       Foreground="Gray"
-                       Margin="0,8,0,12"
-                       TextWrapping="Wrap"/>
+                       Text="Отображение логов Minecraft и клиента в реальном времени"
+                       Foreground="#8E9297"
+                       FontSize="11"
+                       Margin="0,0,0,10"/>
 
-            <Border Grid.Row="2" Background="#0E0E0E" CornerRadius="8" ClipToBounds="True">
+                        <Border Grid.Row="2" Background="#0C0D11" BorderBrush="#1C1F28" BorderThickness="1" CornerRadius="10" ClipToBounds="True">
                 <ListBox x:Name="LogListBox"
                          Background="Transparent"
                          BorderThickness="0"
                          FontFamily="Consolas, monospace"
-                         FontSize="13"
+                         FontSize="12"
                          Padding="10">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
@@ -51,7 +53,7 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="local:LogWindow+LogEntry">
                             <WrapPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding PrefixText}" Foreground="Gray" Margin="0,0,6,0"/>
+                                <TextBlock Text="{Binding PrefixText}" Foreground="#60646C" Margin="0,0,6,0"/>
                                 <SelectableTextBlock Text="{Binding Message}" Foreground="{Binding Brush}" TextWrapping="Wrap"/>
                             </WrapPanel>
                         </DataTemplate>
@@ -59,11 +61,14 @@
                 </ListBox>
             </Border>
 
-            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                <Button x:Name="ClearButton" Content="ОЧИСТИТЬ" Click="Clear_Click" Width="110" Height="34" Margin="0,0,10,0" Background="#2D2D2D" Foreground="White" BorderThickness="0" CornerRadius="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand"/>
-                <Button x:Name="CopyButton" Content="СКОПИРОВАТЬ" Click="Copy_Click" Width="130" Height="34" Margin="0,0,10,0" Background="#2D2D2D" Foreground="White" BorderThickness="0" CornerRadius="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand"/>
-                <Button x:Name="HideButton" Content="СКРЫТЬ" Click="Close_Click" Width="110" Height="34" Background="#BB86FC" Foreground="Black" BorderThickness="0" FontWeight="Bold" CornerRadius="8" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Cursor="Hand"/>
-            </StackPanel>
+                        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Margin="0,10,0,0">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="ClearButton" Content="Очистить" Click="Clear_Click" Height="30" Padding="12,0" Background="#1E2028" Foreground="White" FontSize="11" CornerRadius="6" Cursor="Hand" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                    <Button x:Name="CopyButton" Content="Копировать" Click="Copy_Click" Height="30" Padding="12,0" Background="#1E2028" Foreground="White" FontSize="11" CornerRadius="6" Cursor="Hand" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                </StackPanel>
+
+                <Button x:Name="HideButton" Grid.Column="2" Content="Закрыть" Click="Close_Click" Height="30" Padding="16,0" Background="#A250FF" Foreground="White" FontWeight="Bold" FontSize="11" CornerRadius="6" Cursor="Hand" BorderThickness="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+            </Grid>
         </Grid>
     </Border>
 </Window>
