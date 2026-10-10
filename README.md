@@ -8,9 +8,9 @@
 
 ---
 
-### 🖼️ Interface Screenshot from Version 0.0.3.1
+### 🖼️ Interface Screenshot from Version 0.0.5
 <p align="left">
-  <img src="https://i.ibb.co/3ygWvTpf/photo-2026-05-18-15-15-59.jpg">
+  <img src="https://i.ibb.co/C5fbsD0H/screenshot.png">
 </p>
 
 ---
@@ -21,7 +21,7 @@
 <p align="left">
   <img src="https://img.shields.io/badge/C%23-%23239120.svg?style=for-the-badge&logo=c-sharp&logoColor=white" alt="C#">
   <img src="https://img.shields.io/badge/.NET_8-512BD4?style=for-the-badge&logo=dotnet&logoColor=white" alt=".NET 8">
-  <img src="https://img.shields.io/badge/WPF-blue?style=for-the-badge&logo=windows&logoColor=white" alt="WPF">
+  <img src="https://img.shields.io/badge/Avalonia-Cross_Platform-A250FF?style=for-the-badge" alt="Avalonia">
   <img src="https://img.shields.io/badge/GPL_v3-red?style=for-the-badge&logo=gnu&logoColor=white" alt="GPL v3">
 </p>
 
