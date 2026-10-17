@@ -28,7 +28,6 @@
 ---
 
 ### ℹ️ Links
-* **Telegram Channel**: [t.me/raytolfas_launcher](https://t.me/raytolfas_launcher)
 * **Website**: [launcher.raytolfas.com](https://launcher.raytolfas.com)
 
 ---
