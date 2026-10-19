@@ -47,12 +47,6 @@ jobs:
             src_file: RaytolfasLauncher
             dest_file: RaytolfasLauncher-macos-arm64
             package_type: macos-pkg
-          - os: macos-13
-            rid: osx-x64
-            title: macOS x64
-            src_file: RaytolfasLauncher
-            dest_file: RaytolfasLauncher-macos-x64
-            package_type: none
 
     steps:
       - name: Checkout repository
