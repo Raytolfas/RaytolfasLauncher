@@ -1,10 +1,6 @@
 name: Release Builds
 
 on:
-  push:
-    tags:
-      - '[0-9]+.*'
-      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
