@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -19,7 +19,7 @@ namespace RaytolfasLauncher
         private readonly string tempFile;
         private readonly string language;
 
-        public UpdateWindow() : this("0.0.1", "0.0.2", "Changelog", "", LocalizationManager.DefaultLanguage) { }
+        public UpdateWindow() : this("0.1.0", "0.1.0", "Changelog", "", LocalizationManager.DefaultLanguage) { }
 
         public UpdateWindow(string currentVer, string newVer, string changelog, string url, string language)
         {

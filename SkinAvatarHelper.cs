@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -16,7 +16,7 @@ namespace RaytolfasLauncher
 
         static SkinAvatarHelper()
         {
-            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.5");
+            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.1.0");
         }
 
         public static async Task<Bitmap?> GetAvatarAsync(

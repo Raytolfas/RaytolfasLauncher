@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -298,6 +298,47 @@ namespace RaytolfasLauncher
                 AddPath(ResolveSymlink("/etc/alternatives/java"));
 
                 string homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+                if (IsMacOS)
+                {
+                    string[] macJvmRoots =
+                    {
+                        "/Library/Java/JavaVirtualMachines",
+                        Path.Combine(homeDir, "Library", "Java", "JavaVirtualMachines")
+                    };
+
+                    foreach (var root in macJvmRoots)
+                    {
+                        if (!Directory.Exists(root)) continue;
+                        try
+                        {
+                            foreach (var dir in Directory.EnumerateDirectories(root))
+                            {
+                                string macJava = Path.Combine(dir, "Contents", "Home", "bin", "java");
+                                AddPath(macJava);
+                                AddPath(ResolveSymlink(macJava));
+                            }
+                        }
+                        catch { }
+                    }
+
+                    string[] brewRoots = { "/opt/homebrew/opt", "/usr/local/opt" };
+                    foreach (var brew in brewRoots)
+                    {
+                        if (!Directory.Exists(brew)) continue;
+                        try
+                        {
+                            foreach (var dir in Directory.EnumerateDirectories(brew, "*openjdk*"))
+                            {
+                                string brewJava = Path.Combine(dir, "bin", "java");
+                                AddPath(brewJava);
+                                AddPath(ResolveSymlink(brewJava));
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
                 string[] linuxJvmRoots =
                 {
                     "/usr/lib/jvm",
@@ -376,6 +417,9 @@ sleep 2
 rm -f ""{currentExe}""
 mv -f ""{tempFile}"" ""{finalExePath}""
 chmod +x ""{finalExePath}""
+if [ ""$(uname)"" = ""Darwin"" ]; then
+    xattr -d com.apple.quarantine ""{finalExePath}"" 2>/dev/null || true
+fi
 nohup ""{finalExePath}"" >/dev/null 2>&1 &
 rm -f ""$0""
 ";

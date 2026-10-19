@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:RaytolfasLauncher"
         x:Class="RaytolfasLauncher.ModpacksWindow"
@@ -137,13 +137,14 @@
                                 <ListBox x:Name="InstalledFilesListBox" Grid.Row="1" Background="#16181F" BorderThickness="0" CornerRadius="10">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="local:ModpackFileItem">
-                                            <Grid ColumnDefinitions="*,Auto,Auto" Margin="4,2">
-                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding FileName}" Foreground="White" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis"/>
-                                                    <TextBlock Text="{Binding Category}" Foreground="#8E9297" FontSize="10"/>
+                                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="4,2">
+                                                <CheckBox Grid.Column="0" Classes="RayCheck" IsChecked="{Binding IsEnabled}" Click="ToggleFile_Click" Tag="{Binding}" Margin="0,0,10,0" VerticalAlignment="Center" Cursor="Hand" ToolTip.Tip="Включить / отключить"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding DisplayName}" Foreground="White" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{Binding StatusText}" Foreground="#8E9297" FontSize="10"/>
                                                 </StackPanel>
-                                                <TextBlock Grid.Column="1" Text="{Binding FileSizeFormatted}" Foreground="#8E9297" FontSize="11" VerticalAlignment="Center" Margin="10,0,10,0"/>
-                                                <Button Grid.Column="2" Click="DeleteFile_Click" Tag="{Binding FullPath}" Background="Transparent" BorderThickness="0" Cursor="Hand" Width="28" Height="28" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Удалить файл">
+                                                <TextBlock Grid.Column="2" Text="{Binding FileSizeFormatted}" Foreground="#8E9297" FontSize="11" VerticalAlignment="Center" Margin="10,0,10,0"/>
+                                                <Button Grid.Column="3" Click="DeleteFile_Click" Tag="{Binding FullPath}" Background="Transparent" BorderThickness="0" Cursor="Hand" Width="28" Height="28" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Удалить файл">
                                                     <Viewbox Width="13" Height="13">
                                                         <Canvas Width="24" Height="24">
                                                             <Path Fill="#FF6B6B"
@@ -157,84 +158,143 @@
                                 </ListBox>
                             </Grid>
 
-                                                        <Grid x:Name="ModrinthTabPanel" Grid.Row="3" RowDefinitions="Auto,*" IsVisible="False">
-                                                                <Grid Grid.Row="0" ColumnDefinitions="*,130,90" Margin="0,0,0,8">
-                                    <TextBox x:Name="ModrinthSearchBox" Grid.Column="0" Watermark="Поиск модов на Modrinth..." Height="32" Background="#1E2028" Foreground="White" BorderBrush="#2A2E39" CornerRadius="6" Margin="0,0,6,0" KeyDown="ModrinthSearchBox_KeyDown"/>
-                                    <ComboBox x:Name="ModrinthTypeBox" Grid.Column="1" Height="32" Classes="RayCombo" HorizontalAlignment="Stretch" Margin="0,0,6,0" SelectionChanged="ModrinthTypeBox_SelectionChanged"/>
-                                    <Button x:Name="SearchModrinthButton" Grid.Column="2" Content="Найти" Click="SearchModrinth_Click" Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#A250FF" Foreground="White" FontWeight="Bold" FontSize="11" CornerRadius="6" Cursor="Hand" BorderThickness="0"/>
-                                </Grid>
+                                                        <Grid x:Name="ModrinthTabPanel" Grid.Row="2" RowDefinitions="Auto,*,Auto" IsVisible="False">
+                                    <Grid Grid.Row="0" RowDefinitions="Auto,Auto" Margin="0,0,0,8">
+                                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,90" Margin="0,0,0,6">
+                                            <TextBox x:Name="ModrinthSearchBox" Grid.Column="0" Watermark="Поиск модов на Modrinth..." Height="32" Background="#1E2028" Foreground="White" BorderBrush="#2A2E39" CornerRadius="6" Margin="0,0,8,0" KeyDown="ModrinthSearchBox_KeyDown"/>
+                                            <CheckBox x:Name="ModrinthVersionFilterCheck" Grid.Column="1" Classes="RayCheck" Content="Моя версия" IsChecked="True" Foreground="#C4C9D4" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center" Cursor="Hand" Click="ModrinthVersionCheck_Click" ToolTip.Tip="Искать только совместимые с текущей версией игры"/>
+                                            <Button x:Name="SearchModrinthButton" Grid.Column="2" Content="Найти" Click="SearchModrinth_Click" Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#A250FF" Foreground="White" FontWeight="Bold" FontSize="11" CornerRadius="6" Cursor="Hand" BorderThickness="0"/>
+                                        </Grid>
+                                        <Grid Grid.Row="1" ColumnDefinitions="*,*,*">
+                                            <ComboBox x:Name="ModrinthTypeBox" Grid.Column="0" Height="32" Classes="RayCombo" HorizontalAlignment="Stretch" Margin="0,0,6,0" SelectionChanged="ModrinthTypeBox_SelectionChanged"/>
+                                            <ComboBox x:Name="ModrinthSortBox" Grid.Column="1" Height="32" Classes="RayCombo" HorizontalAlignment="Stretch" Margin="0,0,6,0" SelectionChanged="ModrinthFilter_SelectionChanged"/>
+                                            <ComboBox x:Name="ModrinthCategoryBox" Grid.Column="2" Height="32" Classes="RayCombo" HorizontalAlignment="Stretch" SelectionChanged="ModrinthFilter_SelectionChanged"/>
+                                        </Grid>
+                                    </Grid>
 
-                                                                <ListBox x:Name="ModrinthResultsListBox" Grid.Row="1" Background="#16181F" BorderThickness="0" CornerRadius="10">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate x:DataType="local:ModrinthProjectHit">
-                                            <Border Padding="10,8" Margin="0,0,0,6" Background="#1E2028" CornerRadius="8">
-                                                <Grid ColumnDefinitions="Auto,*,Auto">
-                                                                                                        <Border Grid.Column="0" Width="44" Height="44" CornerRadius="8" Background="#262933" Margin="0,0,12,0" ClipToBounds="True" VerticalAlignment="Center">
-                                                        <Panel>
-                                                            <Viewbox Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <ListBox x:Name="ModrinthResultsListBox" Grid.Row="1" Background="#16181F" BorderThickness="0" CornerRadius="10">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate x:DataType="local:ModrinthProjectHit">
+                                                <Border Padding="10,8" Margin="0,0,0,6" Background="#1E2028" CornerRadius="8">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                                        <Border Grid.Column="0" Width="44" Height="44" CornerRadius="8" Background="#262933" Margin="0,0,12,0" ClipToBounds="True" VerticalAlignment="Center">
+                                                            <Panel>
+                                                                <Viewbox Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                    <Canvas Width="24" Height="24">
+                                                                        <Path Stroke="#60646C" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
+                                                                              Data="M2.3084 7.0066L12 12M12 12L21.6916 7.0066M12 12L12 22M7 4.3017L17 9.4239M12.9075 2.2178L20.9075 6.2914C21.5779 6.6328 22 7.3214 22 8.0737L22 15.9263C22 16.6786 21.5779 17.3672 20.9075 17.7086L12.9075 21.7822C12.3373 22.0726 11.6627 22.0726 11.0925 21.7822L3.0925 17.7086C2.4221 17.3672 2 16.6786 2 15.9263L2 8.0737C2 7.3214 2.4221 6.6328 3.0925 6.2914L11.0925 2.2178C11.6627 1.9274 12.3373 1.9274 12.9075 2.2178Z"/>
+                                                                    </Canvas>
+                                                                </Viewbox>
+                                                                <Image Source="{Binding IconBitmap}" Stretch="UniformToFill"/>
+                                                            </Panel>
+                                                        </Border>
+
+                                                        <StackPanel Grid.Column="1" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Title}" Foreground="White" FontWeight="Bold" FontSize="13"/>
+                                                            <TextBlock Text="{Binding AuthorAndDownloads}" Foreground="#A250FF" FontSize="10" Margin="0,2,0,4"/>
+                                                            <TextBlock Text="{Binding Description}" Foreground="#8E9297" FontSize="11" TextWrapping="Wrap" MaxLines="2"/>
+                                                        </StackPanel>
+
+                                                        <Button Grid.Column="2" Click="OpenScreenshots_Click" Tag="{Binding}" IsVisible="{Binding HasGallery}" Background="#262933" BorderThickness="0" Cursor="Hand" Width="32" Height="30" Margin="0,0,6,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="6" ToolTip.Tip="Скриншоты">
+                                                            <Viewbox Width="15" Height="15">
                                                                 <Canvas Width="24" Height="24">
-                                                                    <Path Stroke="#60646C" StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
-                                                                          Data="M2.3084 7.0066L12 12M12 12L21.6916 7.0066M12 12L12 22M7 4.3017L17 9.4239M12.9075 2.2178L20.9075 6.2914C21.5779 6.6328 22 7.3214 22 8.0737L22 15.9263C22 16.6786 21.5779 17.3672 20.9075 17.7086L12.9075 21.7822C12.3373 22.0726 11.6627 22.0726 11.0925 21.7822L3.0925 17.7086C2.4221 17.3672 2 16.6786 2 15.9263L2 8.0737C2 7.3214 2.4221 6.6328 3.0925 6.2914L11.0925 2.2178C11.6627 1.9274 12.3373 1.9274 12.9075 2.2178Z"/>
+                                                                    <Path Fill="#A250FF"
+                                                                          Data="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
                                                                 </Canvas>
                                                             </Viewbox>
-                                                            <Image Source="{Binding IconBitmap}" Stretch="UniformToFill"/>
-                                                        </Panel>
-                                                    </Border>
+                                                        </Button>
 
-                                                    <StackPanel Grid.Column="1" Margin="0,0,12,0" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Title}" Foreground="White" FontWeight="Bold" FontSize="13"/>
-                                                        <TextBlock Text="{Binding AuthorAndDownloads}" Foreground="#A250FF" FontSize="10" Margin="0,2,0,4"/>
-                                                        <TextBlock Text="{Binding Description}" Foreground="#8E9297" FontSize="11" TextWrapping="Wrap" MaxLines="2"/>
-                                                    </StackPanel>
-                                                    <Button Grid.Column="2" Content="Установить" Click="InstallModrinthProject_Click" Tag="{Binding}" Height="30" Padding="14,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#A250FF" Foreground="White" FontWeight="Bold" FontSize="10" CornerRadius="6" Cursor="Hand" BorderThickness="0" VerticalAlignment="Center"/>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-                            </Grid>
+                                                        <Button Grid.Column="3" Content="Установить" Click="InstallModrinthProject_Click" Tag="{Binding}" Height="30" Padding="14,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#A250FF" Foreground="White" FontWeight="Bold" FontSize="10" CornerRadius="6" Cursor="Hand" BorderThickness="0" VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
 
-                                                        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <ProgressBar x:Name="OperationProgress" Height="4" IsVisible="False" Foreground="#A250FF" Background="#262933" CornerRadius="2"/>
-                                    <TextBlock x:Name="OperationStatusText" Foreground="#8E9297" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
+                                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,6,0,0">
+                                        <TextBlock x:Name="ModrinthResultsCountText" Text="Найдено: 0" Foreground="#8E9297" FontSize="11" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <Button x:Name="PrevPageBtn" Content="&lt;" Click="PrevPage_Click" Height="26" Width="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#1E2028" Foreground="White" FontWeight="Bold" FontSize="11" CornerRadius="6" Cursor="Hand" BorderThickness="0"/>
+                                            <TextBlock x:Name="PageNumberText" Text="1 / 1" Foreground="#8E9297" FontSize="11" VerticalAlignment="Center" Margin="4,0"/>
+                                            <Button x:Name="NextPageBtn" Content="&gt;" Click="NextPage_Click" Height="26" Width="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#1E2028" Foreground="White" FontWeight="Bold" FontSize="11" CornerRadius="6" Cursor="Hand" BorderThickness="0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+
+                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <ProgressBar x:Name="OperationProgress" Height="4" IsVisible="False" Foreground="#A250FF" Background="#262933" CornerRadius="2"/>
+                                        <TextBlock x:Name="OperationStatusText" Foreground="#8E9297" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </Grid>
                             </Grid>
                         </Grid>
                     </Grid>
                 </Grid>
-            </Grid>
 
-                        <Grid x:Name="CreateModal" Background="#CC000000" IsVisible="False">
-                <Border Width="420" Background="#16181F" BorderBrush="#262933" BorderThickness="1" CornerRadius="14" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <StackPanel Spacing="10">
-                        <TextBlock x:Name="ModalTitleText" Text="СОЗДАНИЕ СБОРКИ" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,6"/>
+                <Grid x:Name="CreateModal" Background="#CC000000" IsVisible="False">
+                    <Border Width="420" Background="#16181F" BorderBrush="#262933" BorderThickness="1" CornerRadius="14" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <StackPanel Spacing="10">
+                            <TextBlock x:Name="ModalTitleText" Text="СОЗДАНИЕ СБОРКИ" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,6"/>
 
-                        <StackPanel Spacing="4">
-                            <TextBlock x:Name="ModalPackNameLabel" Text="НАЗВАНИЕ СБОРКИ" Foreground="#8E9297" FontSize="10" FontWeight="Bold"/>
-                            <TextBox x:Name="NewPackNameBox" Watermark="Например: Моя сборка" Height="36" Background="#1E2028" Foreground="White" BorderBrush="#2A2E39" CornerRadius="8"/>
-                        </StackPanel>
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="ModalPackNameLabel" Text="НАЗВАНИЕ СБОРКИ" Foreground="#8E9297" FontSize="10" FontWeight="Bold"/>
+                                <TextBox x:Name="NewPackNameBox" Watermark="Например: Моя сборка" Height="36" Background="#1E2028" Foreground="White" BorderBrush="#2A2E39" CornerRadius="8"/>
+                            </StackPanel>
 
-                        <StackPanel Spacing="4">
-                            <TextBlock x:Name="ModalPackVersionLabel" Text="ВЕРСИЯ MINECRAFT" Foreground="#8E9297" FontSize="10" FontWeight="Bold"/>
-                            <Grid ColumnDefinitions="*,130">
-                                <TextBox x:Name="NewPackVersionBox" Watermark="1.20.1" Height="36" Background="#1E2028" Foreground="White" BorderBrush="#2A2E39" CornerRadius="8,0,0,8" VerticalContentAlignment="Center" Margin="0,0,1,0"/>
-                                <ComboBox x:Name="NewPackVersionSelect" Grid.Column="1" Height="36" Classes="RayCombo" CornerRadius="0,8,8,0" HorizontalAlignment="Stretch" SelectionChanged="NewPackVersionSelect_SelectionChanged"/>
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="ModalPackVersionLabel" Text="ВЕРСИЯ MINECRAFT" Foreground="#8E9297" FontSize="10" FontWeight="Bold"/>
+                                <Grid ColumnDefinitions="*,130">
+                                    <TextBox x:Name="NewPackVersionBox" Watermark="1.20.1" Height="36" Background="#1E2028" Foreground="White" BorderBrush="#2A2E39" CornerRadius="8,0,0,8" VerticalContentAlignment="Center" Margin="0,0,1,0"/>
+                                    <ComboBox x:Name="NewPackVersionSelect" Grid.Column="1" Height="36" Classes="RayCombo" CornerRadius="0,8,8,0" HorizontalAlignment="Stretch" SelectionChanged="NewPackVersionSelect_SelectionChanged"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="ModalPackLoaderLabel" Text="ЗАГРУЗЧИК (LOADER)" Foreground="#8E9297" FontSize="10" FontWeight="Bold"/>
+                                <ComboBox x:Name="NewPackLoaderBox" Height="36" Classes="RayCombo" HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="*,*" Margin="0,10,0,0">
+                                <Button x:Name="CancelCreateButton" Grid.Column="0" Content="Отмена" Click="CancelCreate_Click" Height="36" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#1E2028" Foreground="White" FontWeight="SemiBold" CornerRadius="8" Cursor="Hand" BorderThickness="0" Margin="0,0,4,0"/>
+                                <Button x:Name="ConfirmCreateButton" Grid.Column="1" Content="Создать" Click="ConfirmCreate_Click" Height="36" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#A250FF" Foreground="White" FontWeight="Bold" CornerRadius="8" Cursor="Hand" BorderThickness="0" Margin="4,0,0,0"/>
                             </Grid>
                         </StackPanel>
+                    </Border>
+                </Grid>
 
-                        <StackPanel Spacing="4">
-                            <TextBlock x:Name="ModalPackLoaderLabel" Text="ЗАГРУЗЧИК (LOADER)" Foreground="#8E9297" FontSize="10" FontWeight="Bold"/>
-                            <ComboBox x:Name="NewPackLoaderBox" Height="36" Classes="RayCombo" HorizontalAlignment="Stretch"/>
-                        </StackPanel>
+                <Grid x:Name="ScreenshotsModal" Background="#E6000000" IsVisible="False">
+                    <Border Width="680" Background="#16181F" BorderBrush="#262933" BorderThickness="1" CornerRadius="14" Padding="18" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Grid RowDefinitions="Auto,*,Auto">
+                            <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                                <TextBlock x:Name="ScreenshotProjectTitle" Text="Скриншоты проекта" Foreground="White" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                <Button Grid.Column="1" Click="CloseScreenshots_Click" Background="Transparent" BorderThickness="0" Cursor="Hand" Width="28" Height="28" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                    <Viewbox Width="12" Height="12">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Fill="#8E9297" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                        </Canvas>
+                                    </Viewbox>
+                                </Button>
+                            </Grid>
 
-                        <Grid ColumnDefinitions="*,*" Margin="0,10,0,0">
-                            <Button x:Name="CancelCreateButton" Grid.Column="0" Content="Отмена" Click="CancelCreate_Click" Height="36" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#1E2028" Foreground="White" FontWeight="SemiBold" CornerRadius="8" Cursor="Hand" BorderThickness="0" Margin="0,0,4,0"/>
-                            <Button x:Name="ConfirmCreateButton" Grid.Column="1" Content="Создать" Click="ConfirmCreate_Click" Height="36" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#A250FF" Foreground="White" FontWeight="Bold" CornerRadius="8" Cursor="Hand" BorderThickness="0" Margin="4,0,0,0"/>
+                            <Grid Grid.Row="1" Height="340">
+                                <Border Background="#0C0E14" CornerRadius="8" ClipToBounds="True">
+                                    <Panel>
+                                        <Image x:Name="ScreenshotMainImage" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="ScreenshotLoadingText" Text="Загрузка скриншота..." Foreground="#8E9297" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False"/>
+                                    </Panel>
+                                </Border>
+                                <Button x:Name="PrevScreenshotBtn" Click="PrevScreenshot_Click" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0" Width="32" Height="32" Background="#80000000" Foreground="White" FontWeight="Bold" FontSize="14" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="16" Cursor="Hand" BorderThickness="0" Content="&lt;"/>
+                                <Button x:Name="NextScreenshotBtn" Click="NextScreenshot_Click" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" Width="32" Height="32" Background="#80000000" Foreground="White" FontWeight="Bold" FontSize="14" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" CornerRadius="16" Cursor="Hand" BorderThickness="0" Content="&gt;"/>
+                            </Grid>
+
+                            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,10,0,0">
+                                <TextBlock x:Name="ScreenshotCounterText" Text="1 / 1" Foreground="#8E9297" FontSize="12" VerticalAlignment="Center"/>
+                                <Button Grid.Column="2" Content="Открыть на Modrinth" Click="OpenModrinthWeb_Click" Height="28" Padding="12,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Background="#1E2028" Foreground="White" FontSize="11" CornerRadius="6" Cursor="Hand" BorderThickness="0"/>
+                            </Grid>
                         </Grid>
-                    </StackPanel>
-                </Border>
-            </Grid>
+                    </Border>
+                </Grid>
         </Panel>
     </Border>
 </Window>

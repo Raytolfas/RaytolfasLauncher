@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 //
 // Raytolfas Launcher is free software: you can redistribute it and/or modify
@@ -39,7 +39,7 @@ namespace RaytolfasLauncher
 
         static ModrinthCatalogService()
         {
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.5 (github.com/Raytolfas/RaytolfasLauncher)");
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.1.0 (github.com/Raytolfas/RaytolfasLauncher)");
         }
 
         public static async Task<List<ModrinthSearchResultItem>> SearchAsync(string query = "", string projectType = "mod", string? gameVersion = null, int limit = 20)

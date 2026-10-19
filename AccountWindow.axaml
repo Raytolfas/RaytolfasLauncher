@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:RaytolfasLauncher"
         x:Class="RaytolfasLauncher.AccountWindow"
@@ -27,7 +27,7 @@
 
                         <Grid Grid.Row="1" ColumnDefinitions="240,*">
                                 <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto">
-                    <TextBlock Text="ВАШИ АККАУНТЫ" Foreground="#8E9297" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="YourAccountsHeader" Text="ВАШИ АККАУНТЫ" Foreground="#8E9297" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
                     <ListBox x:Name="AccountsListBox" Grid.Row="1" Background="#161822" BorderBrush="#202430" BorderThickness="1" CornerRadius="10" Padding="4" Margin="0,0,0,10">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="local:AccountData">

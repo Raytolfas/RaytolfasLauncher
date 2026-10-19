@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -23,7 +23,7 @@ namespace RaytolfasLauncher
 
         static ModrinthIconHelper()
         {
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.5 (github.com/Raytolfas/RaytolfasLauncher)");
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.1.0 (github.com/Raytolfas/RaytolfasLauncher)");
         }
 
         public static async Task LoadIconAsync(ModrinthProjectHit hit, string baseDir)

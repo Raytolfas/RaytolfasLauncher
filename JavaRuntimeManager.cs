@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -40,7 +40,7 @@ namespace RaytolfasLauncher
 
         static JavaRuntimeManager()
         {
-            httpClient.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.5");
+            httpClient.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.1.0");
         }
 
         public static int GetRequiredJavaMajorVersion(string? versionId, IVersion? version = null)

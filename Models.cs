@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 //
 // Raytolfas Launcher is free software: you can redistribute it and/or modify
@@ -131,6 +131,15 @@ namespace RaytolfasLauncher
     {
         [JsonPropertyName("hits")]
         public List<ModrinthProjectHit> Hits { get; set; } = new List<ModrinthProjectHit>();
+
+        [JsonPropertyName("total_hits")]
+        public int TotalHits { get; set; }
+
+        [JsonPropertyName("offset")]
+        public int Offset { get; set; }
+
+        [JsonPropertyName("limit")]
+        public int Limit { get; set; }
     }
 
     public class ModrinthProjectHit : INotifyPropertyChanged
@@ -194,6 +203,11 @@ namespace RaytolfasLauncher
                 ? $"{Downloads / 1_000.0:F1}K"
                 : Downloads.ToString();
 
+        [JsonPropertyName("gallery")]
+        public List<string> Gallery { get; set; } = new List<string>();
+
+        public bool HasGallery => Gallery != null && Gallery.Count > 0;
+
         public string AuthorAndDownloads => $"от {Author} • {DownloadsFormatted} скачиваний";
     }
 
@@ -220,6 +234,9 @@ namespace RaytolfasLauncher
         [JsonPropertyName("files")]
         public List<ModrinthVersionFile> Files { get; set; } = new List<ModrinthVersionFile>();
 
+        [JsonPropertyName("dependencies")]
+        public List<ModrinthDependency> Dependencies { get; set; } = new List<ModrinthDependency>();
+
         public string DisplayName
         {
             get
@@ -229,6 +246,21 @@ namespace RaytolfasLauncher
                 return $"{VersionNumber} • {loaders} • {gameVersions}";
             }
         }
+    }
+
+    public class ModrinthDependency
+    {
+        [JsonPropertyName("version_id")]
+        public string? VersionId { get; set; }
+
+        [JsonPropertyName("project_id")]
+        public string? ProjectId { get; set; }
+
+        [JsonPropertyName("file_name")]
+        public string? FileName { get; set; }
+
+        [JsonPropertyName("dependency_type")]
+        public string DependencyType { get; set; } = "required";
     }
 
     public class ModrinthVersionFile

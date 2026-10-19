@@ -1,0 +1,230 @@
+name: Release Builds
+
+on:
+  push:
+    tags:
+      - '[0-9]+.*'
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release version tag (e.g. 0.1.0)'
+        required: true
+        default: '0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.title }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            title: Windows x64
+            src_file: RaytolfasLauncher.exe
+            dest_file: RaytolfasLauncher.exe
+            package_type: none
+          - os: ubuntu-latest
+            rid: linux-x64
+            title: Linux x64
+            src_file: RaytolfasLauncher
+            dest_file: RaytolfasLauncher-linux
+            package_type: linux-packages
+          - os: ubuntu-latest
+            rid: linux-arm64
+            title: Linux ARM64
+            src_file: RaytolfasLauncher
+            dest_file: RaytolfasLauncher-linux-arm64
+            package_type: none
+          - os: macos-latest
+            rid: osx-arm64
+            title: macOS ARM64
+            src_file: RaytolfasLauncher
+            dest_file: RaytolfasLauncher-macos-arm64
+            package_type: macos-pkg
+          - os: macos-13
+            rid: osx-x64
+            title: macOS x64
+            src_file: RaytolfasLauncher
+            dest_file: RaytolfasLauncher-macos-x64
+            package_type: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish standalone binary
+        run: |
+          dotnet publish RaytolfasLauncher.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o dist
+
+      - name: Prepare binary artifact
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp dist/${{ matrix.src_file }} artifacts/${{ matrix.dest_file }}
+          chmod +x artifacts/${{ matrix.dest_file }}
+
+      - name: Build Linux Packages (.deb, .rpm, .AppImage)
+        if: matrix.package_type == 'linux-packages'
+        shell: bash
+        run: |
+          RAW_TAG="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW_TAG="${{ github.event.inputs.tag_name }}"
+          fi
+          VERSION="${RAW_TAG#v}"
+
+          sudo apt-get update
+          sudo apt-get install -y rpm alien desktop-file-utils
+
+          mkdir -p deb-root/DEBIAN
+          mkdir -p deb-root/usr/bin
+          mkdir -p deb-root/usr/share/applications
+          mkdir -p deb-root/usr/share/icons/hicolor/256x256/apps
+
+          cp dist/RaytolfasLauncher deb-root/usr/bin/raytolfas-launcher
+          chmod 755 deb-root/usr/bin/raytolfas-launcher
+          cp Assets/logo.png deb-root/usr/share/icons/hicolor/256x256/apps/raytolfas-launcher.png
+
+          cat << 'EOF' > deb-root/usr/share/applications/raytolfas-launcher.desktop
+          [Desktop Entry]
+          Name=RaytolfasLauncher
+          Comment=Raytolfas Minecraft Launcher
+          Exec=raytolfas-launcher
+          Icon=raytolfas-launcher
+          Terminal=false
+          Type=Application
+          Categories=Game;
+          EOF
+          chmod 644 deb-root/usr/share/applications/raytolfas-launcher.desktop
+
+          cat << EOF > deb-root/DEBIAN/control
+          Package: raytolfas-launcher
+          Version: ${VERSION}
+          Section: games
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Raytolfas <support@raytolfas.com>
+          Description: Modern Minecraft Launcher powered by Avalonia UI
+          EOF
+
+          dpkg-deb --build --root-owner-group deb-root RaytolfasLauncher_${VERSION}_amd64.deb
+          cp RaytolfasLauncher_${VERSION}_amd64.deb artifacts/RaytolfasLauncher.deb
+
+          alien --to-rpm --scripts RaytolfasLauncher_${VERSION}_amd64.deb
+          RPM_FILE=$(ls *.rpm | head -n 1)
+          if [ -n "$RPM_FILE" ]; then
+            cp "$RPM_FILE" artifacts/RaytolfasLauncher.rpm
+          fi
+
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          cp dist/RaytolfasLauncher AppDir/usr/bin/RaytolfasLauncher
+          chmod 755 AppDir/usr/bin/RaytolfasLauncher
+          cp Assets/logo.png AppDir/usr/share/icons/hicolor/256x256/apps/raytolfas-launcher.png
+          cp Assets/logo.png AppDir/raytolfas-launcher.png
+          cp deb-root/usr/share/applications/raytolfas-launcher.desktop AppDir/raytolfas-launcher.desktop
+
+          cat << 'EOF' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          exec "${HERE}/usr/bin/RaytolfasLauncher" "$@"
+          EOF
+          chmod 755 AppDir/AppRun
+
+          curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          sed -i 's|AI\x02|\x00\x00\x00|' appimagetool
+          ARCH=x86_64 ./appimagetool AppDir artifacts/RaytolfasLauncher.AppImage
+
+      - name: Build macOS Installer (.pkg)
+        if: matrix.package_type == 'macos-pkg'
+        shell: bash
+        run: |
+          RAW_TAG="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            RAW_TAG="${{ github.event.inputs.tag_name }}"
+          fi
+          VERSION="${RAW_TAG#v}"
+
+          mkdir -p "pkg-root/Applications/RaytolfasLauncher.app/Contents/MacOS"
+          mkdir -p "pkg-root/Applications/RaytolfasLauncher.app/Contents/Resources"
+          cp dist/RaytolfasLauncher "pkg-root/Applications/RaytolfasLauncher.app/Contents/MacOS/RaytolfasLauncher"
+          chmod 755 "pkg-root/Applications/RaytolfasLauncher.app/Contents/MacOS/RaytolfasLauncher"
+
+          cat << EOF > "pkg-root/Applications/RaytolfasLauncher.app/Contents/Info.plist"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>RaytolfasLauncher</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.raytolfas.launcher</string>
+              <key>CFBundleName</key>
+              <string>RaytolfasLauncher</string>
+              <key>CFBundleVersion</key>
+              <string>${VERSION}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${VERSION}</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+          pkgbuild --root pkg-root --identifier com.raytolfas.launcher --version "${VERSION}" --install-location / artifacts/RaytolfasLauncher.pkg
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-${{ matrix.rid }}
+          path: artifacts/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-binaries
+          merge-multiple: true
+
+      - name: Set release version
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: List artifacts to release
+        run: ls -la release-binaries/
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: Release ${{ steps.vars.outputs.tag }}
+          files: release-binaries/*
+          draft: false
+          prerelease: false

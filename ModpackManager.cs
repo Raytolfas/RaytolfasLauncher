@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -58,7 +58,7 @@ namespace RaytolfasLauncher
                 try
                 {
                     return Directory.Exists(ModsPath)
-                        ? Directory.GetFiles(ModsPath, "*.jar").Length
+                        ? Directory.GetFiles(ModsPath).Count(f => f.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase))
                         : 0;
                 }
                 catch { return 0; }
@@ -110,6 +110,11 @@ namespace RaytolfasLauncher
         public string FullPath { get; set; } = "";
         public string Category { get; set; } = "mods";
         public string FileSizeFormatted { get; set; } = "";
+        public bool IsEnabled { get; set; } = true;
+        public string DisplayName => FileName.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase)
+            ? FileName[..^9]
+            : FileName;
+        public string StatusText => IsEnabled ? Category : $"{Category} (откл.)";
     }
 
 
@@ -363,12 +368,14 @@ namespace RaytolfasLauncher
                     try
                     {
                         var fi = new FileInfo(file);
+                        bool isModDisabled = fi.Name.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase);
                         result.Add(new ModpackFileItem
                         {
                             FileName = fi.Name,
                             FullPath = fi.FullName,
                             Category = cat,
-                            FileSizeFormatted = FormatFileSize(fi.Length)
+                            FileSizeFormatted = FormatFileSize(fi.Length),
+                            IsEnabled = !isModDisabled
                         });
                     }
                     catch { }
@@ -382,7 +389,35 @@ namespace RaytolfasLauncher
             if (categoryFilter == "all" || categoryFilter == "shaderpacks")
                 ScanDir(pack.ShaderpacksPath, "shaderpacks");
 
-            return result.OrderBy(f => f.FileName).ToList();
+            return result.OrderBy(f => f.DisplayName).ToList();
+        }
+
+        public static string? ToggleFile(string fullPath)
+        {
+            try
+            {
+                if (!File.Exists(fullPath)) return null;
+
+                string newPath;
+                if (fullPath.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase))
+                {
+                    newPath = fullPath.Substring(0, fullPath.Length - ".disabled".Length);
+                }
+                else
+                {
+                    newPath = fullPath + ".disabled";
+                }
+
+                if (File.Exists(newPath))
+                    File.Delete(newPath);
+
+                File.Move(fullPath, newPath);
+                return newPath;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public static void DeleteFile(string fullPath)
@@ -404,42 +439,58 @@ namespace RaytolfasLauncher
             return $"{bytes} B";
         }
 
-        public static async Task<List<ModrinthProjectHit>> SearchModrinthAsync(
+        public static async Task<ModrinthSearchResponse> SearchModrinthAsync(
             string query,
             string projectType = "mod",
             string gameVersion = "",
-            string loader = "")
+            string loader = "",
+            string index = "downloads",
+            string category = "",
+            int offset = 0,
+            int limit = 20)
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.5");
+            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.1.0");
 
             var facetsList = new List<string>();
 
-            if (!string.IsNullOrWhiteSpace(projectType))
+            if (!string.IsNullOrWhiteSpace(projectType) && projectType != "all")
                 facetsList.Add($"[\"project_type:{projectType}\"]");
 
             if (!string.IsNullOrWhiteSpace(gameVersion) && gameVersion != "Все" && gameVersion != "All")
                 facetsList.Add($"[\"versions:{gameVersion}\"]");
 
-            if (projectType == "mod" && !string.IsNullOrWhiteSpace(loader) && !loader.Equals("Vanilla", StringComparison.OrdinalIgnoreCase))
+            bool isMod = string.Equals(projectType, "mod", StringComparison.OrdinalIgnoreCase);
+            if (isMod && !string.IsNullOrWhiteSpace(loader) && !loader.Equals("Vanilla", StringComparison.OrdinalIgnoreCase))
                 facetsList.Add($"[\"categories:{loader.ToLowerInvariant()}\"]");
+
+            if (!string.IsNullOrWhiteSpace(category) && category != "all")
+                facetsList.Add($"[\"categories:{category.ToLowerInvariant()}\"]");
 
             string facetsParam = facetsList.Count > 0
                 ? $"&facets=[{string.Join(",", facetsList)}]"
                 : "";
 
-            string url = $"https://api.modrinth.com/v2/search?query={Uri.EscapeDataString(query ?? "")}&limit=25{facetsParam}";
+            string indexParam = !string.IsNullOrWhiteSpace(index) ? $"&index={index}" : "&index=downloads";
+
+            string url = $"https://api.modrinth.com/v2/search?query={Uri.EscapeDataString(query ?? "")}&offset={offset}&limit={limit}{indexParam}{facetsParam}";
 
             try
             {
                 var response = await client.GetStringAsync(url);
                 var searchResult = JsonSerializer.Deserialize<ModrinthSearchResponse>(response, jsonOptions);
-                return searchResult?.Hits ?? new List<ModrinthProjectHit>();
+                return searchResult ?? new ModrinthSearchResponse();
             }
             catch
             {
-                return new List<ModrinthProjectHit>();
+                return new ModrinthSearchResponse();
             }
+        }
+
+        public class ModrinthDownloadResult
+        {
+            public string Filename { get; set; } = "";
+            public List<ModrinthDependency> Dependencies { get; set; } = new List<ModrinthDependency>();
         }
 
         public static async Task<string> DownloadModrinthProjectAsync(
@@ -448,10 +499,24 @@ namespace RaytolfasLauncher
             string loader,
             string destinationDirectory,
             IProgress<double>? progress = null,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            string projectType = "mod")
+        {
+            var res = await DownloadModrinthProjectWithDepsAsync(projectId, gameVersion, loader, destinationDirectory, progress, ct, projectType);
+            return res.Filename;
+        }
+
+        public static async Task<ModrinthDownloadResult> DownloadModrinthProjectWithDepsAsync(
+            string projectId,
+            string gameVersion,
+            string loader,
+            string destinationDirectory,
+            IProgress<double>? progress = null,
+            CancellationToken ct = default,
+            string projectType = "mod")
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.0.5");
+            client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.1.0");
 
             string versionsUrl = $"https://api.modrinth.com/v2/project/{projectId}/version";
             var queryParts = new List<string>();
@@ -459,7 +524,8 @@ namespace RaytolfasLauncher
             if (!string.IsNullOrWhiteSpace(gameVersion) && gameVersion != "Все")
                 queryParts.Add($"game_versions=[\"{gameVersion}\"]");
 
-            if (!string.IsNullOrWhiteSpace(loader) && !loader.Equals("Vanilla", StringComparison.OrdinalIgnoreCase))
+            bool isMod = string.Equals(projectType, "mod", StringComparison.OrdinalIgnoreCase);
+            if (isMod && !string.IsNullOrWhiteSpace(loader) && !loader.Equals("Vanilla", StringComparison.OrdinalIgnoreCase))
                 queryParts.Add($"loaders=[\"{loader.ToLowerInvariant()}\"]");
 
             if (queryParts.Count > 0)
@@ -478,6 +544,21 @@ namespace RaytolfasLauncher
                 throw new InvalidOperationException("Не найдено совместимых файлов для загрузки на Modrinth.");
 
             var latestVer = versions[0];
+            if (!string.IsNullOrWhiteSpace(gameVersion) && versions.Count > 1)
+            {
+                string majorPrefix = gameVersion;
+                int dotCount = majorPrefix.Count(c => c == '.');
+                if (dotCount >= 2)
+                {
+                    int lastDot = majorPrefix.LastIndexOf('.');
+                    majorPrefix = majorPrefix.Substring(0, lastDot);
+                }
+
+                var compatibleVer = versions.FirstOrDefault(v => v.GameVersions != null && v.GameVersions.Any(gv => gv.StartsWith(majorPrefix)));
+                if (compatibleVer != null)
+                    latestVer = compatibleVer;
+            }
+
             var primaryFile = latestVer.Files.FirstOrDefault(f => f.Primary) ?? latestVer.Files.FirstOrDefault();
 
             if (primaryFile == null || string.IsNullOrEmpty(primaryFile.Url))
@@ -509,7 +590,11 @@ namespace RaytolfasLauncher
                 }
             }
 
-            return primaryFile.Filename;
+            return new ModrinthDownloadResult
+            {
+                Filename = primaryFile.Filename,
+                Dependencies = latestVer.Dependencies ?? new List<ModrinthDependency>()
+            };
         }
     }
 }

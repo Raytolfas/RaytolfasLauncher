@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="RaytolfasLauncher.MainWindow"
         Title="Raytolfas Launcher"
@@ -81,7 +81,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <TextBlock x:Name="PageHeaderTitle" Text="ИГРА" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                         <Border Background="#211833" CornerRadius="6" Padding="6,2" VerticalAlignment="Center">
-                            <TextBlock x:Name="VersionText" Text="v0.0.5" Foreground="#A250FF" FontSize="11" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="VersionText" Text="v0.1.0" Foreground="#A250FF" FontSize="11" FontWeight="SemiBold"/>
                         </Border>
                     </StackPanel>
 

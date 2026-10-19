@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -9,11 +9,13 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using CmlLib.Core;
@@ -28,6 +30,11 @@ namespace RaytolfasLauncher
         private ModpackInfo? currentPack;
         private string installedFilter = "all";
         private CancellationTokenSource? currentOperationCts;
+        private int modrinthOffset = 0;
+        private const int ModrinthPageSize = 20;
+        private int modrinthTotalHits = 0;
+        private ModrinthProjectHit? currentScreenshotProject;
+        private int currentScreenshotIndex = 0;
 
         public ModpackInfo? SelectedModpack { get; private set; }
 
@@ -102,11 +109,22 @@ namespace RaytolfasLauncher
 
         private void InitializeFormControls()
         {
+            ModrinthTypeBox.SelectionChanged -= ModrinthTypeBox_SelectionChanged;
             ModrinthTypeBox.Items.Clear();
             ModrinthTypeBox.Items.Add(new ComboBoxItem { Content = T("modpacks.type_mods"), Tag = "mod" });
             ModrinthTypeBox.Items.Add(new ComboBoxItem { Content = T("modpacks.type_resourcepacks"), Tag = "resourcepack" });
             ModrinthTypeBox.Items.Add(new ComboBoxItem { Content = T("modpacks.type_shaders"), Tag = "shader" });
             ModrinthTypeBox.SelectedIndex = 0;
+            ModrinthTypeBox.SelectionChanged += ModrinthTypeBox_SelectionChanged;
+
+            ModrinthSortBox.Items.Clear();
+            ModrinthSortBox.Items.Add(new ComboBoxItem { Content = T("modpacks.sort_downloads"), Tag = "downloads" });
+            ModrinthSortBox.Items.Add(new ComboBoxItem { Content = T("modpacks.sort_relevance"), Tag = "relevance" });
+            ModrinthSortBox.Items.Add(new ComboBoxItem { Content = T("modpacks.sort_updated"), Tag = "updated" });
+            ModrinthSortBox.Items.Add(new ComboBoxItem { Content = T("modpacks.sort_newest"), Tag = "newest" });
+            ModrinthSortBox.SelectedIndex = 0;
+
+            PopulateCategoriesForType("mod");
 
             NewPackVersionBox.Text = "1.20.1";
             NewPackVersionSelect.Items.Clear();
@@ -233,6 +251,9 @@ namespace RaytolfasLauncher
             SelectedPackTitle.Text = pack.DisplayName;
             SelectedPackBadgeText.Text = $"{pack.Loader} {pack.GameVersion}";
 
+            if (ModrinthVersionFilterCheck != null)
+                ModrinthVersionFilterCheck.Content = $"{T("modpacks.filter_current_version")} ({pack.GameVersion})";
+
             RefreshInstalledFiles();
             TriggerModrinthSearch();
         }
@@ -348,7 +369,21 @@ namespace RaytolfasLauncher
                 {
                     ModpackManager.DeleteFile(path);
                     RefreshInstalledFiles();
+                    LoadModpacks();
                     SetStatus(T("modpacks.file_deleted", filename));
+                }
+            }
+        }
+
+        private void ToggleFile_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is CheckBox cb && cb.Tag is ModpackFileItem item)
+            {
+                string? newPath = ModpackManager.ToggleFile(item.FullPath);
+                if (!string.IsNullOrEmpty(newPath))
+                {
+                    RefreshInstalledFiles();
+                    LoadModpacks();
                 }
             }
         }
@@ -357,19 +392,121 @@ namespace RaytolfasLauncher
         {
             if (e.Key == Key.Enter)
             {
+                modrinthOffset = 0;
                 TriggerModrinthSearch();
             }
         }
 
+        private void PopulateCategoriesForType(string projectType)
+        {
+            if (ModrinthCategoryBox == null) return;
+
+            ModrinthCategoryBox.SelectionChanged -= ModrinthFilter_SelectionChanged;
+            ModrinthCategoryBox.Items.Clear();
+
+            ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_all"), Tag = "all" });
+
+            if (projectType == "resourcepack")
+            {
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_vanilla"), Tag = "vanilla-like" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_simplistic"), Tag = "simplistic" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_realistic"), Tag = "realistic" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_themed"), Tag = "themed" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_tweaks"), Tag = "tweaks" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_gui"), Tag = "gui" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_models"), Tag = "models" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_audio"), Tag = "audio" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_decoration"), Tag = "decoration" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_16x"), Tag = "16x" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_32x"), Tag = "32x" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_64x"), Tag = "64x" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_rp_128x"), Tag = "128x" });
+
+                if (ModrinthSearchBox != null)
+                    ModrinthSearchBox.Watermark = T("modpacks.search_watermark_rp");
+            }
+            else if (projectType == "shader")
+            {
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_sh_vanilla"), Tag = "vanilla-like" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_sh_realistic"), Tag = "realistic" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_sh_semi_realistic"), Tag = "semi-realistic" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_sh_fantasy"), Tag = "fantasy" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_sh_cartoon"), Tag = "cartoon" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_sh_potato"), Tag = "potato" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_sh_medium"), Tag = "medium" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_sh_high"), Tag = "high" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_sh_pathtracing"), Tag = "path-tracing" });
+
+                if (ModrinthSearchBox != null)
+                    ModrinthSearchBox.Watermark = T("modpacks.search_watermark_sh");
+            }
+            else
+            {
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_optimization"), Tag = "optimization" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_technology"), Tag = "technology" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_magic"), Tag = "magic" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_adventure"), Tag = "adventure" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_decoration"), Tag = "decoration" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_utility"), Tag = "utility" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_gui"), Tag = "gui" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_food"), Tag = "food" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_storage"), Tag = "storage" });
+                ModrinthCategoryBox.Items.Add(new ComboBoxItem { Content = T("modpacks.cat_worldgen"), Tag = "worldgen" });
+
+                if (ModrinthSearchBox != null)
+                    ModrinthSearchBox.Watermark = T("modpacks.search_watermark");
+            }
+
+            ModrinthCategoryBox.SelectedIndex = 0;
+            ModrinthCategoryBox.SelectionChanged += ModrinthFilter_SelectionChanged;
+        }
+
         private void ModrinthTypeBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
+            if (!IsLoaded) return;
+            string projectType = (ModrinthTypeBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "mod";
+            PopulateCategoriesForType(projectType);
+            modrinthOffset = 0;
+            TriggerModrinthSearch();
+        }
+
+        private void ModrinthVersionCheck_Click(object? sender, RoutedEventArgs e)
+        {
+            modrinthOffset = 0;
+            TriggerModrinthSearch();
+        }
+
+        private void ModrinthFilter_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
             if (IsLoaded)
+            {
+                modrinthOffset = 0;
                 TriggerModrinthSearch();
+            }
         }
 
         private void SearchModrinth_Click(object? sender, RoutedEventArgs e)
         {
+            modrinthOffset = 0;
             TriggerModrinthSearch();
+        }
+
+        private void PrevPage_Click(object? sender, RoutedEventArgs e)
+        {
+            if (modrinthOffset >= ModrinthPageSize)
+            {
+                modrinthOffset -= ModrinthPageSize;
+                TriggerModrinthSearch();
+            }
+        }
+
+        private void NextPage_Click(object? sender, RoutedEventArgs e)
+        {
+            if (modrinthOffset + ModrinthPageSize < modrinthTotalHits)
+            {
+                modrinthOffset += ModrinthPageSize;
+                TriggerModrinthSearch();
+            }
         }
 
         private async void TriggerModrinthSearch()
@@ -378,19 +515,42 @@ namespace RaytolfasLauncher
 
             string query = ModrinthSearchBox?.Text?.Trim() ?? "";
             string projectType = (ModrinthTypeBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "mod";
+            string sort = (ModrinthSortBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "downloads";
+            string category = (ModrinthCategoryBox?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "all";
+            bool onlyCurrentVersion = ModrinthVersionFilterCheck?.IsChecked ?? true;
+            string gameVersion = onlyCurrentVersion ? currentPack.GameVersion : "";
+            string loader = (onlyCurrentVersion && projectType == "mod") ? currentPack.Loader : "";
 
             SetBusy(true, T("modpacks.searching"));
 
             try
             {
-                var hits = await ModpackManager.SearchModrinthAsync(
+                var searchResponse = await ModpackManager.SearchModrinthAsync(
                     query,
                     projectType,
-                    currentPack.GameVersion,
-                    currentPack.Loader);
+                    gameVersion,
+                    loader,
+                    sort,
+                    category,
+                    modrinthOffset,
+                    ModrinthPageSize);
+
+                var hits = searchResponse.Hits;
+                modrinthTotalHits = searchResponse.TotalHits;
 
                 ModrinthResultsListBox.ItemsSource = hits;
-                SetStatus(T("modpacks.found_results", hits.Count));
+                SetStatus(T("modpacks.found_results", modrinthTotalHits));
+                if (ModrinthResultsCountText != null)
+                    ModrinthResultsCountText.Text = T("modpacks.found_results", modrinthTotalHits);
+
+                int curPage = (modrinthOffset / ModrinthPageSize) + 1;
+                int maxPage = Math.Max(1, (int)Math.Ceiling((double)modrinthTotalHits / ModrinthPageSize));
+                if (PageNumberText != null)
+                    PageNumberText.Text = $"{curPage} / {maxPage}";
+                if (PrevPageBtn != null)
+                    PrevPageBtn.IsEnabled = curPage > 1;
+                if (NextPageBtn != null)
+                    NextPageBtn.IsEnabled = curPage < maxPage;
 
                 _ = Task.Run(async () =>
                 {
@@ -410,6 +570,87 @@ namespace RaytolfasLauncher
             }
         }
 
+        private async void OpenScreenshots_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is ModrinthProjectHit hit && hit.HasGallery)
+            {
+                currentScreenshotProject = hit;
+                currentScreenshotIndex = 0;
+                ScreenshotProjectTitle.Text = hit.Title;
+                ScreenshotsModal.IsVisible = true;
+                await LoadCurrentScreenshotAsync();
+            }
+        }
+
+        private void CloseScreenshots_Click(object? sender, RoutedEventArgs e)
+        {
+            ScreenshotsModal.IsVisible = false;
+            ScreenshotMainImage.Source = null;
+            currentScreenshotProject = null;
+        }
+
+        private async void PrevScreenshot_Click(object? sender, RoutedEventArgs e)
+        {
+            if (currentScreenshotProject == null || currentScreenshotProject.Gallery.Count == 0) return;
+            currentScreenshotIndex--;
+            if (currentScreenshotIndex < 0)
+                currentScreenshotIndex = currentScreenshotProject.Gallery.Count - 1;
+            await LoadCurrentScreenshotAsync();
+        }
+
+        private async void NextScreenshot_Click(object? sender, RoutedEventArgs e)
+        {
+            if (currentScreenshotProject == null || currentScreenshotProject.Gallery.Count == 0) return;
+            currentScreenshotIndex++;
+            if (currentScreenshotIndex >= currentScreenshotProject.Gallery.Count)
+                currentScreenshotIndex = 0;
+            await LoadCurrentScreenshotAsync();
+        }
+
+        private async Task LoadCurrentScreenshotAsync()
+        {
+            if (currentScreenshotProject == null || currentScreenshotProject.Gallery.Count == 0) return;
+            int total = currentScreenshotProject.Gallery.Count;
+            ScreenshotCounterText.Text = $"{currentScreenshotIndex + 1} / {total}";
+            string url = currentScreenshotProject.Gallery[currentScreenshotIndex];
+
+            ScreenshotLoadingText.IsVisible = true;
+            ScreenshotMainImage.Source = null;
+
+            try
+            {
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "RaytolfasLauncher/0.1.0");
+                var bytes = await client.GetByteArrayAsync(url);
+                using var ms = new MemoryStream(bytes);
+                ScreenshotMainImage.Source = new Bitmap(ms);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                ScreenshotLoadingText.IsVisible = false;
+            }
+        }
+
+        private void OpenModrinthWeb_Click(object? sender, RoutedEventArgs e)
+        {
+            if (currentScreenshotProject != null && !string.IsNullOrEmpty(currentScreenshotProject.Slug))
+            {
+                string url = $"https://modrinth.com/mod/{currentScreenshotProject.Slug}";
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+                catch { }
+            }
+        }
+
         private async void InstallModrinthProject_Click(object? sender, RoutedEventArgs e)
         {
             if (sender is not Button btn || btn.Tag is not ModrinthProjectHit hit || currentPack == null)
@@ -424,7 +665,7 @@ namespace RaytolfasLauncher
             };
 
             btn.IsEnabled = false;
-            btn.Content = "⏳...";
+            btn.Content = "...";
             SetBusy(true, T("modpacks.downloading", hit.Title));
 
             currentOperationCts?.Cancel();
@@ -438,20 +679,27 @@ namespace RaytolfasLauncher
 
             try
             {
-                string filename = await ModpackManager.DownloadModrinthProjectAsync(
+                var downloadRes = await ModpackManager.DownloadModrinthProjectWithDepsAsync(
                     hit.ProjectId,
                     currentPack.GameVersion,
-                    currentPack.Loader,
+                    projectType == "mod" ? currentPack.Loader : "",
                     targetDir,
                     progress,
-                    currentOperationCts.Token);
+                    currentOperationCts.Token,
+                    projectType);
 
+                string filename = downloadRes.Filename;
                 btn.Content = T("modpacks.btn_installed");
                 btn.Background = Brush.Parse("#4CAF50");
                 SetStatus(T("modpacks.installed_file", filename));
 
                 RefreshInstalledFiles();
                 LoadModpacks();
+
+                if (projectType == "mod")
+                {
+                    await CheckAndInstallModDependenciesAsync(hit, downloadRes, progress, currentOperationCts.Token);
+                }
             }
             catch (Exception ex)
             {
@@ -463,6 +711,89 @@ namespace RaytolfasLauncher
             finally
             {
                 SetBusy(false);
+            }
+        }
+
+        private async Task CheckAndInstallModDependenciesAsync(
+            ModrinthProjectHit hit,
+            ModpackManager.ModrinthDownloadResult downloadRes,
+            IProgress<double> progress,
+            CancellationToken ct)
+        {
+            if (currentPack == null) return;
+
+            bool isFabric = currentPack.Loader.Equals("Fabric", StringComparison.OrdinalIgnoreCase);
+            bool isFabricApiItself = hit.ProjectId.Equals("P7dR8mSH", StringComparison.OrdinalIgnoreCase) ||
+                                     string.Equals(hit.Slug, "fabric-api", StringComparison.OrdinalIgnoreCase) ||
+                                     hit.Title.Contains("Fabric API", StringComparison.OrdinalIgnoreCase);
+
+            if (isFabric && !isFabricApiItself)
+            {
+                bool hasFabricApi = Directory.Exists(currentPack.ModsPath) &&
+                    Directory.GetFiles(currentPack.ModsPath).Any(f =>
+                    {
+                        string name = Path.GetFileName(f);
+                        return name.StartsWith("fabric-api", StringComparison.OrdinalIgnoreCase);
+                    });
+
+                if (!hasFabricApi)
+                {
+                    bool? installFapi = await RayMessageBox.ShowConfirmAsync(
+                        this,
+                        T("modpacks.dep_fabric_api_prompt", hit.Title),
+                        T("modpacks.dependencies_title"));
+
+                    if (installFapi == true)
+                    {
+                        try
+                        {
+                            SetBusy(true, T("modpacks.dep_installing", "Fabric API"));
+                            string fapiFile = await ModpackManager.DownloadModrinthProjectAsync(
+                                "fabric-api",
+                                currentPack.GameVersion,
+                                "fabric",
+                                currentPack.ModsPath,
+                                progress,
+                                ct);
+
+                            SetStatus(T("modpacks.dep_installed", fapiFile));
+                            RefreshInstalledFiles();
+                            LoadModpacks();
+                        }
+                        catch (Exception ex)
+                        {
+                            SetStatus(T("modpacks.install_error", ex.Message));
+                        }
+                    }
+                }
+            }
+
+            if (downloadRes.Dependencies != null && downloadRes.Dependencies.Count > 0)
+            {
+                foreach (var dep in downloadRes.Dependencies)
+                {
+                    if (string.Equals(dep.DependencyType, "required", StringComparison.OrdinalIgnoreCase) &&
+                        !string.IsNullOrWhiteSpace(dep.ProjectId) &&
+                        !string.Equals(dep.ProjectId, "P7dR8mSH", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            SetBusy(true, T("modpacks.dep_installing", dep.ProjectId));
+                            string depFile = await ModpackManager.DownloadModrinthProjectAsync(
+                                dep.ProjectId,
+                                currentPack.GameVersion,
+                                currentPack.Loader,
+                                currentPack.ModsPath,
+                                progress,
+                                ct);
+
+                            SetStatus(T("modpacks.dep_installed", depFile));
+                            RefreshInstalledFiles();
+                            LoadModpacks();
+                        }
+                        catch { }
+                    }
+                }
             }
         }
 

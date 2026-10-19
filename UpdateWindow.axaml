@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="RaytolfasLauncher.UpdateWindow"
         Title="Обновление лаунчера"
@@ -24,10 +24,10 @@
                 <Border Background="#161822" BorderBrush="#252A38" BorderThickness="1" CornerRadius="10" Padding="12,8" HorizontalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock x:Name="CurrentVersionLabel" Text="Текущая: " Foreground="#8E9297" FontSize="12"/>
-                        <TextBlock x:Name="CurrentVerText" Text="0.0.1" Foreground="White" FontWeight="Bold" FontSize="12"/>
+                        <TextBlock x:Name="CurrentVerText" Text="0.1.0" Foreground="White" FontWeight="Bold" FontSize="12"/>
                         <TextBlock Text="→" Foreground="#8E9297" FontSize="12" Margin="4,0"/>
                         <TextBlock x:Name="NewVersionLabel" Text="Новая: " Foreground="#8E9297" FontSize="12"/>
-                        <TextBlock x:Name="NewVerText" Text="0.0.2" Foreground="#A250FF" FontWeight="Bold" FontSize="12"/>
+                        <TextBlock x:Name="NewVerText" Text="0.1.0" Foreground="#A250FF" FontWeight="Bold" FontSize="12"/>
                     </StackPanel>
                 </Border>
 

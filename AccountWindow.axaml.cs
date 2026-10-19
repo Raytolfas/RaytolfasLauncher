@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 
 using System;
@@ -44,7 +44,8 @@ namespace RaytolfasLauncher
         private void ApplyLocalization()
         {
             Title = T("account.window_title");
-            AccountsTitleText.Text = T("account.title");
+            AccountsTitleText.Text = T("account.window_title");
+            YourAccountsHeader.Text = T("account.title");
             DeleteAccountText.Text = T("account.delete");
             AddOfflineText.Text = T("account.add_offline").TrimStart('+', ' ');
             AddMicrosoftText.Text = T("account.add_microsoft").TrimStart('+', ' ');

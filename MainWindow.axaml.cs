@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Raytolfas
+// Copyright (C) 2026 Raytolfas
 // This file is part of Raytolfas Launcher.
 //
 // Raytolfas Launcher is free software: you can redistribute it and/or modify
@@ -56,7 +56,7 @@ namespace RaytolfasLauncher
         private MinecraftLauncher? launcher;
         private LauncherSettings settings = new LauncherSettings();
         private readonly DiscordRpcClient discordClientID = new DiscordRpcClient("1472589510742118400");
-        private readonly string currentVersion = "0.0.5";
+        private readonly string currentVersion = "0.1.0";
         private readonly string updateUrl = "https://raw.githubusercontent.com/Raytolfas/Assets/refs/heads/main/RaytolfasLauncherMC/update.json";
         private const string ElyByProfileApiBaseUrl = "https://authserver.ely.by";
         private const string AuthlibInjectorLatestReleaseApiUrl = "https://api.github.com/repos/yushijinhun/authlib-injector/releases/latest";
@@ -338,11 +338,42 @@ namespace RaytolfasLauncher
             [System.Text.Json.Serialization.JsonPropertyName("download_url_linux")]
             public string? DownloadUrlLinux { get; set; }
 
+            [System.Text.Json.Serialization.JsonPropertyName("macos_url")]
+            public string? MacOsUrl { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("download_url_macos")]
+            public string? DownloadUrlMacOs { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("macos_arm64_url")]
+            public string? MacOsArm64Url { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("macos_x64_url")]
+            public string? MacOsX64Url { get; set; }
+
             [System.Text.Json.Serialization.JsonPropertyName("changelog")]
             public string Changelog { get; set; } = "";
 
             public string GetPlatformDownloadUrl()
             {
+                if (PlatformHelper.IsMacOS)
+                {
+                    if (System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture == System.Runtime.InteropServices.Architecture.Arm64)
+                    {
+                        if (!string.IsNullOrWhiteSpace(MacOsArm64Url))
+                            return MacOsArm64Url;
+                    }
+                    else
+                    {
+                        if (!string.IsNullOrWhiteSpace(MacOsX64Url))
+                            return MacOsX64Url;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(MacOsUrl))
+                        return MacOsUrl;
+                    if (!string.IsNullOrWhiteSpace(DownloadUrlMacOs))
+                        return DownloadUrlMacOs;
+                }
+
                 if (PlatformHelper.IsLinux)
                 {
                     if (!string.IsNullOrWhiteSpace(LinuxUrl))
@@ -1678,7 +1709,7 @@ namespace RaytolfasLauncher
         private static string NormalizeNickname(string raw)
         {
             if (string.IsNullOrWhiteSpace(raw)) return "";
-            return raw.Replace("🔑", "").Replace("🦋", "").Replace("👤", "").Trim();
+            return raw.Trim();
         }
 
         private async void LoadVersions()
@@ -1701,25 +1732,38 @@ namespace RaytolfasLauncher
 
             try
             {
-                var allMetadata = await launcher.GetAllVersionsAsync();
-
-                if (settings.ShowModded)
+                if (!NetworkInterface.GetIsNetworkAvailable())
                 {
-                    foreach (var localName in localVersions)
+                    if (Directory.Exists(versionsDirPath))
                     {
-                        if (!allMetadata.Any(v => v.Name == localName))
+                        foreach (var localName in localVersions)
                         {
-                            AddVersionToBox(localName, "custom", versionsDirPath);
+                            AddVersionToBox(localName, "local", versionsDirPath);
                         }
                     }
                 }
-
-                foreach (var v in allMetadata)
+                else
                 {
-                    if (v.Type == "release" && !settings.ShowReleases) continue;
-                    if (v.Type == "snapshot" && !settings.ShowSnapshots) continue;
+                    var allMetadata = await launcher.GetAllVersionsAsync();
 
-                    AddVersionToBox(v.Name, v.Type, versionsDirPath);
+                    if (settings.ShowModded)
+                    {
+                        foreach (var localName in localVersions)
+                        {
+                            if (!allMetadata.Any(v => v.Name == localName))
+                            {
+                                AddVersionToBox(localName, "custom", versionsDirPath);
+                            }
+                        }
+                    }
+
+                    foreach (var v in allMetadata)
+                    {
+                        if (v.Type == "release" && !settings.ShowReleases) continue;
+                        if (v.Type == "snapshot" && !settings.ShowSnapshots) continue;
+
+                        AddVersionToBox(v.Name, v.Type, versionsDirPath);
+                    }
                 }
             }
             catch
@@ -1900,35 +1944,38 @@ namespace RaytolfasLauncher
         {
             if (string.IsNullOrWhiteSpace(line)) return;
 
-            if (!line.Contains("[CHAT]"))
+            if (line.Contains("[CHAT]", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("[System]", StringComparison.OrdinalIgnoreCase))
             {
-                var match = ServerConnectRegex.Match(line);
-                if (match.Success)
+                return;
+            }
+
+            var match = ServerConnectRegex.Match(line);
+            if (match.Success)
+            {
+                string host = match.Groups[1].Value.Trim();
+                string port = match.Groups[2].Success ? match.Groups[2].Value.Trim() : "";
+
+                if (host.Equals("integrated", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("integrated", StringComparison.OrdinalIgnoreCase))
                 {
-                    string host = match.Groups[1].Value.Trim();
-                    string port = match.Groups[2].Success ? match.Groups[2].Value.Trim() : "";
-
-                    if (host.Equals("integrated", StringComparison.OrdinalIgnoreCase) ||
-                        line.Contains("integrated", StringComparison.OrdinalIgnoreCase))
-                    {
-                        currentConnectedServer = null;
-                        Dispatcher.UIThread.Post(() =>
-                        {
-                            SetDiscordStatus(T("discord.state.singleplayer"), T("discord.details.version", displayGameVersion));
-                        });
-                        return;
-                    }
-
-                    string serverAddress = !string.IsNullOrEmpty(port) && port != "25565" ? $"{host}:{port}" : host;
-                    currentConnectedServer = serverAddress;
+                    currentConnectedServer = null;
                     Dispatcher.UIThread.Post(() =>
                     {
-                        settings.LastServerIp = serverAddress;
-                        SaveSettings();
-                        SetDiscordStatus(T("discord.state.server", serverAddress), T("discord.details.version", displayGameVersion), serverAddress);
+                        SetDiscordStatus(T("discord.state.singleplayer"), T("discord.details.version", displayGameVersion));
                     });
                     return;
                 }
+
+                string serverAddress = !string.IsNullOrEmpty(port) && port != "25565" ? $"{host}:{port}" : host;
+                currentConnectedServer = serverAddress;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    settings.LastServerIp = serverAddress;
+                    SaveSettings();
+                    SetDiscordStatus(T("discord.state.server", serverAddress), T("discord.details.version", displayGameVersion), serverAddress);
+                });
+                return;
             }
 
             if (line.Contains("Starting integrated minecraft server", StringComparison.OrdinalIgnoreCase) ||
@@ -1943,24 +1990,12 @@ namespace RaytolfasLauncher
             }
 
             bool isDisconnect = false;
-            if (line.Contains("Stopping worker threads", StringComparison.OrdinalIgnoreCase))
+            if (line.Contains("Disconnecting from server", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("Leaving server", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("Stopping singleplayer server", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("Stopping integrated server", StringComparison.OrdinalIgnoreCase))
             {
                 isDisconnect = true;
-            }
-            else if (!line.Contains("[CHAT]"))
-            {
-                if (line.Contains("lost connection", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("left the game", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("disconnected", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("connection closed", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("connection reset", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("stopping singleplayer server", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("stopping server", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("failed to connect", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("could not connect", StringComparison.OrdinalIgnoreCase))
-                {
-                    isDisconnect = true;
-                }
             }
 
             if (isDisconnect)
